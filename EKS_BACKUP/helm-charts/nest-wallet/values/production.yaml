@@ -1,0 +1,151 @@
+# Production Environment Values
+# ArgoCD가 이 파일을 읽어서 production 네임스페이스에 배포
+
+# 이미지 설정 (GitHub Actions에서 업데이트)
+image:
+  repository: "533267237231.dkr.ecr.ap-northeast-2.amazonaws.com/nest-wallet"  # ECR Repository URL
+  tag: "main-9ceff1d2"                  # GitHub Actions에서 commit SHA로 교체
+  pullPolicy: IfNotPresent
+
+# 복제본 수 (프로덕션은 고가용성)
+replicaCount: 3
+
+# 리소스 제한 (프로덕션은 충분히)
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# 환경 변수 (포트 3000으로 통일)
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: PORT
+    value: "3000"
+  - name: APP_ENV
+    value: "prod"
+
+# 서비스 설정 (포트 3000으로 통일)
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+# Ingress 설정 (프로덕션용 ALB + HTTPS)
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # SSL 인증서는 나중에 ACM으로 설정
+    # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:..."
+  hosts:
+    - host: nest-wallet.nest-wallet.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # TLS 설정은 나중에 도메인 준비 후 추가
+
+# 자동 스케일링 (프로덕션은 활성화)
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# 헬스체크 (포트 3000으로 통일, 프로덕션은 더 엄격하게)
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# 보안 설정 (프로덕션은 더 엄격)
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+# 노드 선택 (시스템 노드에서 실행)
+nodeSelector:
+  role: "system"
+
+# 톨러레이션 (시스템 노드에서 실행 허용) - CrashLoopBackOff 문제 해결
+tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+# 어피니티 (파드 분산 + 가용영역 분산)
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - nest-wallet
+      topologyKey: kubernetes.io/hostname
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - nest-wallet
+        topologyKey: topology.kubernetes.io/zone
+
+# 파드 디스럽션 버짓 (업데이트 시 최소 서비스 유지)
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# 배포 전략 (롤링 업데이트)
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+# 앱 메타데이터 (ArgoCD에서 추적용)
+app:
+  name: "nest-wallet"
+  environment: "production"
+  version: "main-9ceff1d2"
+  deployedAt: "2025-07-25T09:38:23Z"
+  gitCommit: "9ceff1d2f078b81fc46a59031745743d261bb7f7"

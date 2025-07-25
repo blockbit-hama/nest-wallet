@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+
+
+## **핵심 특징**
+
+- **자동화**: Terraform + GitHub Actions + ArgoCD로 완전 자동화
+- **GitOps**: 선언적 배포로 안정성과 추적성 확보
+- **보안**: IRSA로 최소 권한 원칙 적용
+- **확장성**: Karpenter로 워크로드 기반 스케일링
+- **비용 최적화**: Spot 인스턴스 + ARM64 노드

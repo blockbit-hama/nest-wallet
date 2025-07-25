@@ -1,0 +1,8 @@
+settings:
+  clusterName: nest-wallet-dev
+  clusterEndpoint: https://47EBF4E33AF49719B991F484A466BCCC.sk1.ap-northeast-2.eks.amazonaws.com
+  defaultInstanceProfile: eks-application-dev-c2cc1d75-80e7-fe4d-52d5-b168ddee791c
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::533267237231:role/nest-wallet-karpenter-dev 

@@ -1,0 +1,254 @@
+# Production environment values
+# Override default values for production deployment
+
+# Application metadata (GitOps tracking)
+app:
+  name: nest-wallet
+  version: "production"
+  deployedAt: "2025-07-24T02:27:11Z" # GitHub Actions에서 자동 업데이트
+  gitCommit: "7fcd36fe10824107cca68839346ad75e240c64cb" # GitHub Actions에서 자동 업데이트
+replicaCount: 3
+image:
+  repository: 533267237231.dkr.ecr.ap-northeast-2.amazonaws.com/nest-wallet
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "main-7fcd36fe"
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+podAnnotations: {}
+podSecurityContext: {}
+# fsGroup: 2000
+
+securityContext: {}
+# capabilities:
+#   drop:
+#   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 3000
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:533267237231:certificate/your-cert-id
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+  hosts:
+    - host: nest-wallet-prod.nest-wallet.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: nest-wallet-tls
+  #    hosts:
+  #      - nest-wallet-prod.nest-wallet.example.com
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+nodeSelector:
+  spot: "true"
+tolerations:
+  - key: "spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - nest-wallet
+          topologyKey: kubernetes.io/hostname
+# Rollout configuration for Blue-Green deployment
+rollout:
+  autoPromotionEnabled: false
+  autoPromotionSeconds: 60
+  scaleDownDelaySeconds: 60
+  activeLabel:
+    key: "rollouts-pod-template-hash"
+    value: "active"
+  previewLabel:
+    key: "rollouts-pod-template-hash"
+    value: "preview"
+# Environment variables
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: PORT
+    value: "3000"
+# Environment variables from ConfigMap/Secret
+envFrom: []
+# - configMapRef:
+#     name: nest-wallet-config
+# - secretRef:
+#     name: nest-wallet-secrets
+
+# Volume mounts
+volumeMounts: []
+# Volumes
+volumes: []
+# Pod labels
+podLabels: {}
+# Blue/Green strategy for production (manual promotion)
+strategy:
+  type: BlueGreen
+  blueGreen:
+    autoPromotionEnabled: false # Manual promotion for production safety
+    scaleDownDelaySeconds: 30
+    prePromotionAnalysis:
+      templates:
+        - templateName: success-rate
+        - templateName: response-time
+        - templateName: error-rate
+      args:
+        - name: service-name
+          value: nest-wallet
+# Production health checks (strict)
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 3
+readinessProbe:
+  httpGet:
+    path: /api/ready
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 2
+startupProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 10
+  failureThreshold: 10
+# Spot Instance support for cost optimization (Production)
+nodeSelector:
+  node.kubernetes.io/instance-type: spot
+  karpenter.sh/capacity-type: spot
+# Tolerations for Spot Instances (Production)
+tolerations:
+  - key: "spot"
+    value: "true"
+    effect: "NoSchedule"
+# Anti-affinity (hard for production)
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - nest-wallet
+        topologyKey: kubernetes.io/hostname
+# Pod disruption budget for production
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+# Monitoring enabled for production
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+# Network policy for production
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+# Security context (strict for production)
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+# Production volumes
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: logs
+    mountPath: /app/logs
+volumes:
+  - name: tmp
+    emptyDir:
+      sizeLimit: 500Mi
+  - name: logs
+    persistentVolumeClaim:
+      sizeLimit: 1Gi
+# Strict analysis for production
+blueGreen:
+  analysis:
+    successRate:
+      enabled: true
+      threshold: 95
+    responseTime:
+      enabled: true
+      threshold: 2000
+    errorRate:
+      enabled: true
+      threshold: 5
+# External Secrets for production (민감한 설정)
+externalSecrets:
+  enabled: true
+  refreshInterval: "1h"
+  secretStoreRef:
+    name: "aws-secrets-manager"
+    kind: "SecretStore"
+  prodSecretName: "nest-wallet-prod-secrets"
+# Global configuration
+global:
+  environment: "prod"

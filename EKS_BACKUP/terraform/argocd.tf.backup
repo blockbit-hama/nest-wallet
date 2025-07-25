@@ -1,0 +1,160 @@
+# ArgoCD Applications for GitOps deployment
+
+# ArgoCD Application for Development Environment
+resource "kubectl_manifest" "argocd_app_dev" {
+  yaml_body = yamlencode({
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
+    metadata = {
+      name      = "nest-wallet-dev"
+      namespace = "argocd"
+    }
+    spec = {
+      project = "default"
+      
+      source = {
+        repoURL        = "https://github.com/your-org/nest-wallet.git"  # TODO: 실제 GitHub 저장소 URL로 변경
+        targetRevision = "develop"
+        path           = "helm-charts/nest-wallet"
+        helm = {
+          valueFiles = ["values/dev.yaml"]
+        }
+      }
+      
+      destination = {
+        server    = "https://kubernetes.default.svc"
+        namespace = "development"
+      }
+      
+      syncPolicy = {
+        automated = {
+          prune    = true
+          selfHeal = true
+        }
+        syncOptions = [
+          "CreateNamespace=true"
+        ]
+      }
+    }
+  })
+
+  depends_on = [
+    helm_release.argocd
+  ]
+}
+
+# ArgoCD Application for Production Environment
+resource "kubectl_manifest" "argocd_app_prod" {
+  yaml_body = yamlencode({
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
+    metadata = {
+      name      = "nest-wallet-prod"
+      namespace = "argocd"
+    }
+    spec = {
+      project = "default"
+      
+      source = {
+        repoURL        = "https://github.com/your-org/nest-wallet.git"  # 실제 GitHub 저장소 URL로 변경
+        targetRevision = "main"
+        path           = "helm-charts/nest-wallet"
+        helm = {
+          valueFiles = ["values/production.yaml"]
+        }
+      }
+      
+      destination = {
+        server    = "https://kubernetes.default.svc"
+        namespace = "production"
+      }
+      
+      syncPolicy = {
+        # Production은 수동 승인 후 배포
+        automated = {
+          prune    = false
+          selfHeal = false
+        }
+        syncOptions = [
+          "CreateNamespace=true"
+        ]
+      }
+    }
+  })
+
+  depends_on = [
+    helm_release.argocd
+  ]
+}
+
+# ArgoCD Project (선택사항 - 기본 프로젝트 사용 가능)
+resource "kubectl_manifest" "argocd_project" {
+  yaml_body = yamlencode({
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "AppProject"
+    metadata = {
+      name      = "nest-wallet"
+      namespace = "argocd"
+    }
+    spec = {
+      description = "Nest Wallet Application Project"
+      
+      sourceRepos = [
+        "https://github.com/your-org/nest-wallet.git"
+      ]
+      
+      destinations = [
+        {
+          namespace = "development"
+          server    = "https://kubernetes.default.svc"
+        },
+        {
+          namespace = "production"
+          server    = "https://kubernetes.default.svc"
+        }
+      ]
+      
+      clusterResourceWhitelist = [
+        {
+          group = ""
+          kind  = "Namespace"
+        }
+      ]
+      
+      namespaceResourceWhitelist = [
+        {
+          group = ""
+          kind  = "*"
+        },
+        {
+          group = "apps"
+          kind  = "*"
+        },
+        {
+          group = "networking.k8s.io"
+          kind  = "*"
+        }
+      ]
+      
+      roles = [
+        {
+          name = "developer"
+          policies = [
+            "p, proj:nest-wallet:developer, applications, get, nest-wallet/*, allow",
+            "p, proj:nest-wallet:developer, applications, sync, nest-wallet/nest-wallet-dev, allow"
+          ]
+        },
+        {
+          name = "admin"
+          policies = [
+            "p, proj:nest-wallet:admin, applications, *, nest-wallet/*, allow"
+          ]
+        }
+      ]
+    }
+  })
+
+  depends_on = [
+    helm_release.argocd
+  ]
+}

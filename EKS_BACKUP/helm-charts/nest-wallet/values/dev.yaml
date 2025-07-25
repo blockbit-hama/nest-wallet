@@ -1,0 +1,113 @@
+# Development Environment Values
+# ArgoCD가 이 파일을 읽어서 development 네임스페이스에 배포
+
+# 이미지 설정 (GitHub Actions에서 업데이트)
+image:
+  repository: "533267237231.dkr.ecr.ap-northeast-2.amazonaws.com/nest-wallet"  # 실제 ECR URL
+  tag: "main-afe4dec"               # GitHub Actions에서 commit SHA로 교체
+  pullPolicy: IfNotPresent
+
+# 복제본 수 (개발환경은 적게)
+replicaCount: 2
+
+# 리소스 제한 (개발환경은 작게)
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# 환경 변수
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: PORT
+    value: "3001"
+  - name: APP_ENV
+    value: "dev"
+
+# 서비스 설정
+service:
+  type: ClusterIP
+  port: 3001
+  targetPort: 3001
+
+# Ingress 설정 (개발환경용 ALB)
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # 개발환경은 HTTP만 사용
+  hosts:
+    - host: nest-wallet-dev.nest-wallet.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # TLS는 나중에 설정
+
+# 자동 스케일링 (개발환경은 비활성화)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+# 헬스체크
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3001
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3001
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# 보안 설정
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+# 노드 선택 (Karpenter 노드 사용)
+nodeSelector: {}
+
+# 톨러레이션 (시스템 노드는 사용하지 않음)
+tolerations: []
+
+# 어피니티 (파드 분산)
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - nest-wallet
+        topologyKey: kubernetes.io/hostname
+
+# 앱 메타데이터 (ArgoCD에서 추적용)
+app:
+  name: "nest-wallet"
+  environment: "development"
+  version: "develop-latest"
+  deployedAt: "2025-01-01T00:00:00Z"
+  gitCommit: ""

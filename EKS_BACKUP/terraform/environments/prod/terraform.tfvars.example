@@ -1,0 +1,45 @@
+# Production Environment Terraform Variables
+# Copy this file to terraform.tfvars and customize the values
+
+# AWS Configuration
+aws_region = "ap-northeast-2"
+project_name = "nest-wallet"
+
+# Cluster Configuration
+cluster_version = "1.31"
+
+# Network Configuration - Simplified (4 subnets)
+vpc_cidr = "10.1.0.0/16"
+availability_zones = ["ap-northeast-2a", "ap-northeast-2b"]
+private_subnet_cidrs = ["10.1.1.0/24", "10.1.2.0/24"]
+public_subnet_cidrs = ["10.1.101.0/24", "10.1.102.0/24"]
+
+# Node Configuration - Unified Node Group (Production Focused)
+node_groups = {
+  general = {
+    instance_types = ["m6g.large", "c6g.large"]
+    min_size       = 3
+    max_size       = 15
+    desired_size   = 5
+    capacity_type  = "ON_DEMAND"  # Production stability
+    disk_size      = 30
+    
+    # Labels for mixed workloads
+    k8s_labels = {
+      "node-type" = "general"
+      "workload" = "mixed"
+      "environment" = "production"
+    }
+  }
+}
+
+# Tags
+tags = {
+  Project = "nest-wallet"
+  Environment = "prod"
+  ManagedBy = "terraform"
+  Owner = "your-name"
+  CostCenter = "engineering"
+  Purpose = "production"
+  Criticality = "high"
+}

@@ -1,0 +1,424 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply bg-gray-900 text-gray-100 min-h-screen font-sans;
+    background-color: #14151A;
+    color: #E0DFE4;
+  }
+  
+  * {
+    @apply box-border;
+  }
+}
+
+@layer components {
+  /* 공통 스타일 */
+  .flex-center {
+    @apply flex items-center justify-center;
+  }
+  
+  .common-button {
+    @apply rounded-xl font-bold cursor-pointer transition-all duration-150;
+  }
+  
+  .common-card {
+    @apply rounded-2xl p-4 flex items-center gap-4;
+    background: #1B1C22;
+  }
+  
+  .common-modal {
+    @apply rounded-3xl p-8 w-full max-w-md shadow-2xl text-gray-100;
+    background: #23242A;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+  
+  /* 홈 페이지 스타일 - 정확한 Emotion 스타일 복제 */
+  .top-bar {
+    width: 100%;
+    background: rgba(20,21,26,0.98);
+    border-bottom: 1px solid #23242A;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 0;
+    height: 88px;
+  }
+  
+  .top-bar-inner {
+    max-width: 480px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 88px;
+    padding: 0 16px;
+  }
+  
+  .profile-button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #23242A;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #F2A003;
+    font-size: 24px;
+    font-weight: 700;
+    position: relative;
+  }
+  
+  .profile-dropdown {
+    position: absolute;
+    top: 54px;
+    right: 0;
+    min-width: 160px;
+    background: #23242A;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px 0 rgba(0,0,0,0.18);
+    border: 2px solid #F2A003;
+    z-index: 1000;
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .profile-dropdown-link {
+    padding: 18px 32px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #E0DFE4;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    display: block;
+    text-decoration: none;
+  }
+  
+  .profile-dropdown-link:hover {
+    background: #1B1C22;
+    color: #F2A003;
+  }
+  
+  .wallet-select-container {
+    width: 260px;
+  }
+  
+  /* 지갑 콤보박스 + 드롭다운 아이콘 */
+  
+  .main-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 0 80px 0;
+    min-height: 100vh;
+  }
+  
+  .tab-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 64px;
+    background: #23242A;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  
+  .main-summary-box {
+    width: 100%;
+    max-width: 480px;
+    margin: 8px auto 32px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  
+  .main-summary-amount {
+    font-size: 48px;
+    font-weight: 800;
+    color: #E0DFE4;
+    letter-spacing: -1.5px;
+    text-align: center;
+    line-height: 1.1;
+  }
+  
+  .main-summary-eth {
+    font-size: 24px;
+    color: #A0A0B0;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  
+  .main-summary-coupon {
+    font-size: 24px;
+    color: #F2A003;
+    font-weight: 800;
+    margin-top: 2px;
+    margin-bottom: 18px;
+  }
+  
+  .main-action-button-group {
+    width: calc(100% - 32px);
+    max-width: 432px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 56px;
+    padding: 0;
+  }
+  
+  .main-action-button {
+    width: 32%;
+    min-width: 0;
+    border: none;
+    border-radius: 24px;
+    background: #F2A003;
+    color: #14151A;
+    font-weight: 700;
+    font-size: 22px;
+    height: 72px;
+    line-height: 72px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(242,160,3,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    text-align: center;
+  }
+  
+  .main-action-receive-button {
+    width: 32%;
+    min-width: 0;
+    border: none;
+    border-radius: 24px;
+    background: #E0DFE4;
+    color: #14151A;
+    font-weight: 700;
+    font-size: 22px;
+    height: 72px;
+    line-height: 72px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(224,223,228,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    text-align: center;
+  }
+  
+  .main-action-swap-button {
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
+    min-height: 72px;
+    aspect-ratio: 1/1;
+    border-radius: 50%;
+    background: #23242A;
+    color: #F2A003;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(242,160,3,0.08);
+    flex-shrink: 0;
+    margin-left: 0;
+  }
+  
+  .balance-combo-box {
+    width: 120px;
+    margin-left: auto;
+    margin-bottom: 10px;
+    margin-right: 16px;
+  }
+  
+  .balance-list {
+    width: 100%;
+    max-width: 480px;
+    background: none;
+    border-radius: 20px;
+    padding: 0;
+    margin-bottom: 20px;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  .balance-card-inner {
+    display: flex;
+    flex-direction: column;
+    min-width: 64px;
+    margin-right: 12px;
+  }
+  
+  .balance-card-name {
+    font-weight: 600;
+    font-size: 26.5px;
+    color: #E0DFE4;
+    font-family: inherit;
+    letter-spacing: -1.5px;
+  }
+  
+  .balance-card-usd {
+    font-size: 19px;
+    font-weight: 500;
+    font-family: inherit;
+  }
+  
+  .balance-card-amount {
+    font-weight: 700;
+    font-size: 30.5px;
+    color: #E0DFE4;
+    font-family: inherit;
+    letter-spacing: -1.5px;
+  }
+  
+  .balance-card-sub-usd {
+    font-size: 17px;
+    color: #A0A0B0;
+    font-weight: 500;
+    font-family: inherit;
+  }
+  
+  .coupon-list {
+    width: calc(100% - 32px);
+    max-width: 432px;
+    margin-bottom: 16px;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .coupon-card {
+    background: #23242A;
+    border-radius: 20px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid #2A2B30;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .coupon-card:hover {
+    background: #2A2B30;
+    border-color: #F2A003;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(242,160,3,0.15);
+  }
+  
+  .coupon-card-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: #E0DFE4;
+    margin-bottom: 4px;
+  }
+  
+  .coupon-card-expire {
+    font-size: 16px;
+    color: #A0A0B0;
+    font-weight: 500;
+  }
+  
+  .watermark {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    color: #A0A0B0;
+    font-weight: 500;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  
+  /* 커스텀 셀렉트 스타일 - 정확한 Emotion 스타일 복제 */
+  .select-button {
+    width: 100%;
+    background: #23242A;
+    color: inherit;
+    border: 2px solid #23242A;
+    border-radius: 14px;
+    font-weight: 700;
+    padding-right: 48px;
+    text-align: left;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    position: relative;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+  
+  .select-button.open {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  }
+  
+  .dropdown-menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
+    background: #23242A;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px 0 rgba(0,0,0,0.18);
+    z-index: 1000;
+    padding: 6px;
+    max-height: 320px;
+    overflow-y: auto;
+    border: 2px solid #F2A003;
+  }
+  
+  .dropdown-option {
+    padding: 20px 32px;
+    font-weight: 700;
+    color: #E0DFE4;
+    background: transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-bottom: 2px;
+    outline: none;
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+  }
+  
+  .dropdown-option.selected {
+    color: #F2A003;
+    background: #1B1C22;
+  }
+  
+  .dropdown-option:hover {
+    background: #2A2B30;
+  }
+}

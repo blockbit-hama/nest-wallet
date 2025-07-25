@@ -1,0 +1,53 @@
+apiVersion: karpenter.sh/v1alpha5
+kind: Provisioner
+metadata:
+  name: nest-wallet-dev-provisioner
+  annotations:
+    karpenter.sh/do-not-evict: "true"
+spec:
+  consolidation:
+    enabled: true
+  requirements:
+    - key: karpenter.sh/capacity-type
+      operator: In
+      values: [spot]
+    - key: kubernetes.io/arch
+      operator: In
+      values: [arm64, amd64]
+    - key: kubernetes.io/os
+      operator: In
+      values: [linux]
+    - key: node.kubernetes.io/instance-type
+      operator: In
+      values:
+        - t4g.medium
+        - t4g.large
+        - t4g.xlarge
+        - c6g.medium
+        - c6g.large
+        - c6g.xlarge
+        - m6g.medium
+        - m6g.large
+        - m6g.xlarge
+    - key: topology.kubernetes.io/zone
+      operator: In
+      values: [ap-northeast-2a, ap-northeast-2c]
+  kubeletConfiguration:
+    systemReserved:
+      cpu: 100m
+      memory: 100Mi
+    kubeReserved:
+      cpu: 100m
+      memory: 100Mi
+    evictionHard:
+      memory.available: 100Mi
+      nodefs.available: 1%
+    maxPods: 110
+  taints:
+    - key: spot
+      value: "true"
+      effect: NoSchedule
+  startupTaints:
+    - key: spot
+      value: "true"
+      effect: NoSchedule 

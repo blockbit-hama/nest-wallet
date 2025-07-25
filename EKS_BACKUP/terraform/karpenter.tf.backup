@@ -1,0 +1,157 @@
+# Karpenter 노드 자동 스케일링 설정
+# NodeClass와 NodePool을 통해 노드 생성 규칙 정의
+
+# Karpenter NodeClass (EC2 노드 템플릿) - API 버전 호환성 수정
+resource "kubectl_manifest" "karpenter_nodeclass" {
+  yaml_body = yamlencode({
+    apiVersion = "karpenter.k8s.aws/v1alpha1"  # v1beta1 대신 v1alpha1 사용
+    kind       = "EC2NodeClass"
+    metadata = {
+      name = "${var.project_name}-nodeclass"
+    }
+    spec = {
+      # AMI 설정
+      amiFamily = "AL2"  # Amazon Linux 2
+      
+      # 서브넷 자동 검색 (태그 기반)
+      subnetSelectorTerms = [
+        {
+          tags = {
+            "karpenter.sh/discovery" = local.cluster_name
+            "kubernetes.io/cluster/${local.cluster_name}" = "owned"
+          }
+        }
+      ]
+      
+      # 보안그룹 자동 검색 (태그 기반)
+      securityGroupSelectorTerms = [
+        {
+          tags = {
+            "karpenter.sh/discovery" = local.cluster_name
+          }
+        }
+      ]
+      
+      # IAM Instance Profile
+      role = aws_iam_role.karpenter_node.name
+      
+      # 사용자 데이터 (부트스트랩)
+      userData = base64encode(<<-EOF
+        #!/bin/bash
+        /etc/eks/bootstrap.sh ${aws_eks_cluster.main.name}
+      EOF
+      )
+      
+      # 태그
+      tags = merge(var.tags, {
+        Name = "${var.project_name}-karpenter-node"
+        "karpenter.sh/discovery" = local.cluster_name
+      })
+    }
+  })
+
+  depends_on = [
+    helm_release.karpenter,
+    aws_iam_instance_profile.karpenter_node
+  ]
+}
+
+# Karpenter NodePool (노드 프로비저닝 규칙)
+resource "kubectl_manifest" "karpenter_nodepool" {
+  yaml_body = yamlencode({
+    apiVersion = "karpenter.sh/v1beta1"
+    kind       = "NodePool"
+    metadata = {
+      name = "${var.project_name}-nodepool"
+    }
+    spec = {
+      # 노드 클래스 참조
+      template = {
+        metadata = {
+          labels = {
+            "node-type" = "karpenter"
+          }
+          annotations = {
+            "karpenter.sh/provisioner-name" = "${var.project_name}-nodepool"
+          }
+        }
+        spec = {
+          nodeClassRef = {
+            apiVersion = "karpenter.k8s.aws/v1beta1"
+            kind       = "EC2NodeClass"
+            name       = "${var.project_name}-nodeclass"
+          }
+          
+          # 노드 요구사항
+          requirements = [
+            {
+              key      = "kubernetes.io/arch"
+              operator = "In"
+              values   = ["arm64", "amd64"]
+            },
+            {
+              key      = "kubernetes.io/os"
+              operator = "In"
+              values   = ["linux"]
+            },
+            {
+              key      = "karpenter.sh/capacity-type"
+              operator = "In"
+              values   = ["spot", "on-demand"]
+            },
+            {
+              key      = "node.kubernetes.io/instance-type"
+              operator = "In"
+              values   = [
+                "t3.medium", "t3.large", "t3.xlarge",
+                "t4g.medium", "t4g.large", "t4g.xlarge",
+                "m5.large", "m5.xlarge",
+                "m6g.large", "m6g.xlarge"
+              ]
+            }
+          ]
+          
+          # 노드 설정
+          taints = []
+          startupTaints = []
+        }
+      }
+      
+      # 제한사항
+      limits = {
+        cpu = 1000  # 최대 1000 vCPU
+      }
+      
+      # 스케일링 설정
+      disruption = {
+        consolidationPolicy = "WhenLessUtilized"
+        consolidateAfter    = "30s"
+        expireAfter         = "30m"  # 30분 후 노드 교체
+      }
+    }
+  })
+
+  depends_on = [
+    kubectl_manifest.karpenter_nodeclass
+  ]
+}
+
+# 서브넷에 Karpenter 발견 태그 추가
+resource "aws_ec2_tag" "public_subnets_karpenter" {
+  count       = length(aws_subnet.public)
+  resource_id = aws_subnet.public[count.index].id
+  key         = "karpenter.sh/discovery"
+  value       = local.cluster_name
+}
+
+resource "aws_ec2_tag" "cluster_sg_karpenter" {
+  resource_id = aws_security_group.cluster.id
+  key         = "karpenter.sh/discovery"
+  value       = local.cluster_name
+}
+
+resource "aws_ec2_tag" "node_sg_karpenter" {
+  resource_id = aws_security_group.node.id
+  key         = "karpenter.sh/discovery"
+  value       = local.cluster_name
+}

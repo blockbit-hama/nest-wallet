@@ -1,0 +1,195 @@
+name: ECS Development Deployment
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - local
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: nest-wallet-repo
+  ECS_CLUSTER: nest-wallet-cluster
+  ECS_SERVICE: nest-wallet-service
+  ECS_TASK_DEFINITION: nest-wallet-task-dev
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+  deploy:
+    needs: lint
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+          fi
+          echo "🔧 Deploying to environment: ${{ env.ENVIRONMENT }}"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "🔨 Building Docker image for ${{ env.ENVIRONMENT }}..."
+          docker build --build-arg ENV=${{ env.ENVIRONMENT }} -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }} .
+          docker build --build-arg ENV=${{ env.ENVIRONMENT }} -t $ECR_REGISTRY/$ECR_REPOSITORY:latest-${{ env.ENVIRONMENT }} .
+          
+          echo "📤 Pushing images to ECR..."
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }}
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest-${{ env.ENVIRONMENT }}
+          
+          echo "✅ Image built and pushed successfully"
+          echo "📍 Image URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }}"
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+
+      - name: Download current task definition
+        run: |
+          echo "📥 Downloading current task definition..."
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --query taskDefinition > task-definition.json
+          
+          echo "✅ Task definition downloaded"
+          echo "Current task definition family: $(cat task-definition.json | jq -r '.family')"
+          echo "Current revision: $(cat task-definition.json | jq -r '.revision')"
+
+      - name: Update task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: nest-wallet-container
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Register new task definition
+        id: register-task-def
+        run: |
+          echo "📝 Registering new task definition..."
+          
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://${{ steps.task-def.outputs.task-definition }} \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          if [ -z "$TASK_DEF_ARN" ]; then
+            echo "❌ Failed to register task definition"
+            exit 1
+          fi
+          
+          echo "✅ New task definition registered"
+          echo "📍 Task Definition ARN: $TASK_DEF_ARN"
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+          
+          # Extract revision number for logging
+          REVISION=$(echo $TASK_DEF_ARN | cut -d':' -f6)
+          echo "📊 New revision: $REVISION"
+
+      - name: Update ECS service
+        run: |
+          echo "🚀 Updating ECS service with new task definition..."
+          
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --task-definition $TASK_DEF_ARN \
+            --force-new-deployment
+          
+          echo "✅ ECS service updated successfully"
+
+      - name: Wait for deployment to complete
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}
+          
+          echo "✅ Deployment completed successfully"
+
+      - name: Deployment summary
+        run: |
+          echo "📋 ==========================="
+          echo "📋 DEVELOPMENT DEPLOYMENT SUMMARY"
+          echo "📋 ==========================="
+          echo "🏷️  Image Tag: ${{ github.sha }}-${{ env.ENVIRONMENT }}"
+          echo "📦 Task Definition: $TASK_DEF_ARN"
+          echo "🌍 Region: ${{ env.AWS_REGION }}"
+          echo "🔧 Environment: ${{ env.ENVIRONMENT }}"
+          echo "📋 ==========================="
+          echo ""
+          echo "🔗 USEFUL LINKS:"
+          echo "🖥️  ECS Service: https://${{ env.AWS_REGION }}.console.aws.amazon.com/ecs/home?region=${{ env.AWS_REGION }}#/clusters/${{ env.ECS_CLUSTER }}/services/${{ env.ECS_SERVICE }}/details"
+          echo "🐳 ECR Repository: https://${{ env.AWS_REGION }}.console.aws.amazon.com/ecr/repositories/${{ env.ECR_REPOSITORY }}?region=${{ env.AWS_REGION }}"
+          echo "🔐 Secrets Manager: https://${{ env.AWS_REGION }}.console.aws.amazon.com/secretsmanager/listsecrets?region=${{ env.AWS_REGION }}"
+          echo ""
+          echo "✅ Development deployment completed successfully!"
+
+  notify-on-failure:
+    needs: [lint, deploy]
+    runs-on: ubuntu-latest
+    if: failure()
+
+    steps:
+      - name: Notify deployment failure
+        run: |
+          echo "❌ ==========================="
+          echo "❌ DEVELOPMENT DEPLOYMENT FAILED"
+          echo "❌ ==========================="
+          echo "📊 Check the logs above for details"
+          echo "🔧 Common issues to check:"
+          echo "   • ECS service is running"
+          echo "   • Task definition is valid"
+          echo "   • Container health checks are passing"
+          echo "   • Load balancer target group is healthy"
+          echo "   • IAM permissions for ECS operations"
+          echo "   • Secrets Manager permissions and values"
+          echo ""
+          echo "📚 Troubleshooting guide:"
+          echo "https://docs.aws.amazon.com/ecs/latest/userguide/troubleshooting.html" 

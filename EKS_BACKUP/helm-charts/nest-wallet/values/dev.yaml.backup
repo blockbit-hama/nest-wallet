@@ -1,0 +1,142 @@
+# Default values for nest-wallet.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 2
+
+image:
+  repository: 533267237231.dkr.ecr.ap-northeast-2.amazonaws.com/nest-wallet
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "develop"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1001
+  runAsGroup: 1001
+  runAsNonRoot: true
+  runAsUser: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1001
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:533267237231:certificate/your-cert-id
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+  hosts:
+    - host: nest-wallet-dev.nest-wallet.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: nest-wallet-tls
+  #    hosts:
+  #      - nest-wallet-dev.nest-wallet.example.com
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Node Selector 제거
+# nodeSelector: 
+#   spot: "true"
+
+# Tolerations 제거
+# tolerations:
+#   - key: "spot"
+#     operator: "Equal"
+#     value: "true"
+#     effect: "NoSchedule"
+
+affinity: {}
+
+# Rollout configuration for Blue-Green deployment
+rollout:
+  autoPromotionEnabled: false
+  autoPromotionSeconds: 30
+  scaleDownDelaySeconds: 30
+  activeLabel:
+    key: "rollouts-pod-template-hash"
+    value: "active"
+  previewLabel:
+    key: "rollouts-pod-template-hash"
+    value: "preview"
+
+# Environment variables
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: PORT
+    value: "3000"
+
+# Environment variables from ConfigMap/Secret
+envFrom: []
+  # - configMapRef:
+  #     name: nest-wallet-config
+  # - secretRef:
+  #     name: nest-wallet-secrets
+
+# Volume mounts
+volumeMounts: []
+
+# Volumes
+volumes: []
+
+# Pod labels
+podLabels: {}
+
+# External Secrets configuration
+externalSecrets:
+  enabled: false  # Disabled for now
+  refreshInterval: "1h"
+  secretStoreRef:
+    name: "aws-secrets-manager"
+    kind: "SecretStore"
+  devSecretName: "nest-wallet-dev-secrets"
+  prodSecretName: "nest-wallet-prod-secrets"
+
+# Global configuration
+global:
+  environment: "dev"

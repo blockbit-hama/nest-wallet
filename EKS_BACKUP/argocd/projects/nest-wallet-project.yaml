@@ -1,0 +1,86 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: nest-wallet
+  namespace: argocd
+spec:
+  description: Nest Wallet Application Project
+  
+  # Source repositories
+  sourceRepos:
+    - 'https://github.com/blockbit-hama/nest-wallet.git'
+  
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+    - namespace: default
+      server: https://kubernetes.default.svc
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+  
+  # Allowed cluster resources
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: 'rbac.authorization.k8s.io'
+      kind: ClusterRole
+    - group: 'rbac.authorization.k8s.io'
+      kind: ClusterRoleBinding
+  
+  # Allowed namespaced resources
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: PersistentVolumeClaim
+    - group: 'apps'
+      kind: Deployment
+    - group: 'apps'
+      kind: StatefulSet
+    - group: 'apps'
+      kind: DaemonSet
+    - group: 'argoproj.io'
+      kind: Rollout
+    - group: 'networking.k8s.io'
+      kind: Ingress
+    - group: 'networking.k8s.io'
+      kind: NetworkPolicy
+    - group: 'policy'
+      kind: PodDisruptionBudget
+    - group: 'autoscaling'
+      kind: HorizontalPodAutoscaler
+    - group: 'external-secrets.io'
+      kind: ExternalSecret
+    - group: 'external-secrets.io'
+      kind: SecretStore
+    - group: 'karpenter.sh'
+      kind: Provisioner
+    - group: 'karpenter.sh'
+      kind: NodePool
+  
+  # Allowed roles
+  roles:
+    - name: admin
+      description: Admin role for Nest Wallet project
+      policies:
+        - p, proj:nest-wallet:admin, applications, *, nest-wallet/*, allow
+        - p, proj:nest-wallet:admin, repositories, *, *, allow
+        - p, proj:nest-wallet:admin, clusters, *, *, allow
+      groups:
+        - nest-wallet-admins
+    
+    - name: developer
+      description: Developer role for Nest Wallet project
+      policies:
+        - p, proj:nest-wallet:developer, applications, get, nest-wallet/*, allow
+        - p, proj:nest-wallet:developer, applications, sync, nest-wallet/*, allow
+        - p, proj:nest-wallet:developer, applications, action/*, nest-wallet/*, allow
+      groups:
+        - nest-wallet-developers 

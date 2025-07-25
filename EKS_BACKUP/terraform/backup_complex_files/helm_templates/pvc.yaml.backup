@@ -1,0 +1,19 @@
+{{- if .Values.volumes }}
+{{- range .Values.volumes }}
+{{- if eq .name "logs" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "nest-wallet.fullname" $ }}-logs-pvc
+  labels:
+    {{- include "nest-wallet.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .persistentVolumeClaim.sizeLimit | default "1Gi" }}
+  storageClassName: gp2
+{{- end }}
+{{- end }}
+{{- end }} 
