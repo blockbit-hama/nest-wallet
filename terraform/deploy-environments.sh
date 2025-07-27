@@ -204,6 +204,19 @@ for env in "${ENVIRONMENTS[@]}"; do
     echo "$env 환경: http://$ALB_DNS"
 done
 
+# IAM 사용자 보존 안내
+echo -e "\n🔑 GitHub Actions IAM 사용자 정보:"
+echo "✅ IAM 사용자 'github-actions-nest-wallet'가 보존됩니다"
+echo "✅ 기존 액세스 키가 유지됩니다 (prevent_destroy 설정)"
+echo ""
+echo "🔧 액세스 키가 없다면 수동으로 생성하세요:"
+echo "aws iam create-access-key --user-name github-actions-nest-wallet"
+echo ""
+echo "📋 GitHub Secrets 확인:"
+echo "GitHub Repository → Settings → Secrets and variables → Actions"
+echo "- AWS_ACCESS_KEY_ID"
+echo "- AWS_SECRET_ACCESS_KEY"
+
 echo -e "\n📝 다음 단계:"
 echo "1. GitHub Actions 워크플로우가 환경별로 설정되었습니다"
 echo "2. main 브랜치 푸시 → Production 환경 배포"
