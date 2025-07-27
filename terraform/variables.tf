@@ -70,31 +70,31 @@ variable "private_subnets" {
 variable "task_cpu" {
   description = "CPU units for ECS task"
   type        = number
-  default     = 256
+  default     = 256  # 128 → 256으로 변경 (Fargate 최소 요구사항)
 }
 
 variable "task_memory" {
   description = "Memory for ECS task"
   type        = number
-  default     = 512
+  default     = 512  # 512MB 유지 (Fargate 최소 요구사항)
 }
 
 variable "service_desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
-  default     = 2
+  default     = 1  # 2개 → 1개로 줄임
 }
 
 variable "service_min_count" {
   description = "Minimum number of ECS tasks"
   type        = number
-  default     = 2
+  default     = 1  # 2개 → 1개로 줄임
 }
 
 variable "service_max_count" {
   description = "Maximum number of ECS tasks"
   type        = number
-  default     = 10
+  default     = 3  # 10개 → 3개로 줄임
 }
 
 variable "scale_up_threshold" {

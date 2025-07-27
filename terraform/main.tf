@@ -120,42 +120,41 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public[split("-", each.key)[0]].id
 }
 
-# 환경별 NAT Gateway EIP
-resource "aws_eip" "nat" {
-  for_each = var.environments
-  
-  domain = "vpc"
-  
-  tags = {
-    Name = "${var.project_name}-${each.key}-nat-eip"
-    Environment = each.key
-  }
-}
+# NAT Gateway 제거 - 테스트용이므로 불필요
+# resource "aws_eip" "nat" {
+#   for_each = var.environments
+#   
+#   domain = "vpc"
+#   
+#   tags = {
+#     Name = "${var.project_name}-${each.key}-nat-eip"
+#     Environment = each.key
+#   }
+# }
 
-# 환경별 NAT Gateway
-resource "aws_nat_gateway" "environments" {
-  for_each = var.environments
-  
-  allocation_id = aws_eip.nat[each.key].id
-  subnet_id     = aws_subnet.public["${each.key}-0"].id
+# resource "aws_nat_gateway" "environments" {
+#   for_each = var.environments
+#   
+#   allocation_id = aws_eip.nat[each.key].id
+#   subnet_id     = aws_subnet.public["${each.key}-0"].id
 
-  tags = {
-    Name = "${var.project_name}-${each.key}-nat-gateway"
-    Environment = each.key
-  }
+#   tags = {
+#     Name = "${var.project_name}-${each.key}-nat-gateway"
+#     Environment = each.key
+#   }
 
-  depends_on = [aws_internet_gateway.environments]
-}
+#   depends_on = [aws_internet_gateway.environments]
+# }
 
-# 환경별 Route Tables for Private Subnets
+# 환경별 Route Tables for Private Subnets (NAT Gateway 대신 IGW 사용)
 resource "aws_route_table" "private" {
   for_each = var.environments
   
   vpc_id = aws_vpc.environments[each.key].id
 
   route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.environments[each.key].id
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.environments[each.key].id  # NAT Gateway 대신 IGW 사용
   }
 
   tags = {
@@ -268,13 +267,13 @@ resource "aws_lb_target_group" "environments" {
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    interval            = 30
+    interval            = 60    # 30 → 60초로 증가
     matcher             = "200"
     path                = "/"
     port                = "traffic-port"
     protocol            = "HTTP"
-    timeout             = 10
-    unhealthy_threshold = 3
+    timeout             = 15    # 10 → 15초로 증가
+    unhealthy_threshold = 5     # 3 → 5회로 증가
   }
 
   tags = {
@@ -402,10 +401,10 @@ resource "aws_ecs_task_definition" "environments" {
 
       healthCheck = {
         command     = ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 60
+        interval    = 60    # 30 → 60초로 증가
+        timeout     = 10    # 5 → 10초로 증가
+        retries     = 5     # 3 → 5회로 증가
+        startPeriod = 120   # 60 → 120초로 증가 (컨테이너 시작 시간 여유)
       }
     }
   ])
@@ -429,7 +428,7 @@ resource "aws_ecs_service" "environments" {
   network_configuration {
     subnets          = [for i in range(length(each.value.private_subnets)) : aws_subnet.private["${each.key}-${i}"].id]
     security_groups  = [aws_security_group.ecs[each.key].id]
-    assign_public_ip = false
+    assign_public_ip = true  # NAT Gateway 없이도 인터넷 접근 가능
   }
 
   load_balancer {
@@ -582,8 +581,8 @@ resource "aws_dynamodb_table" "terraform_locks" {
 resource "aws_appautoscaling_target" "ecs_targets" {
   for_each = var.environments
   
-  max_capacity       = 10
-  min_capacity       = 2
+  max_capacity       = 3   # 10 → 3으로 줄임
+  min_capacity       = 1   # 2 → 1로 줄임
   resource_id        = "service/${aws_ecs_cluster.environments[each.key].name}/${aws_ecs_service.environments[each.key].name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
