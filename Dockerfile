@@ -16,10 +16,7 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY ECS_BACKUP .
-
-# 환경 설정 스크립트에 실행 권한 부여
-RUN chmod +x scripts/setup-env.sh
+COPY . .
 
 # 환경 변수 설정 (빌드 시점에 결정)
 ARG NODE_ENV=production
@@ -64,5 +61,4 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-# 헬스체크 추가
 CMD ["node", "server.js"] 
