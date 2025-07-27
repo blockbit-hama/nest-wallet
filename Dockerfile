@@ -18,11 +18,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 환경 변수 설정 (빌드 시점에 결정)
-ARG NODE_ENV=production
-ARG ENV=prod
-
-# Next.js 빌드
+# Next.js 빌드 (환경변수는 런타임에 주입)
 RUN npm run build
 
 # 프로덕션 단계
