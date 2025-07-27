@@ -386,6 +386,10 @@ resource "aws_ecs_task_definition" "environments" {
           valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:PORT::"
         },
         {
+          name      = "ENVIRONMENT"
+          valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:ENVIRONMENT::"
+        },
+        {
           name      = "NEXT_PUBLIC_API_URL"
           valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:NEXT_PUBLIC_API_URL::"
         },

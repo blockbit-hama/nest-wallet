@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
+    // 환경 구분을 위한 로직
+    const environment = process.env.ENVIRONMENT || process.env.NODE_ENV || 'development';
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    
     // 기본적인 헬스체크 응답
     const healthCheck = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
+      environment: environment,
+      nodeEnv: nodeEnv,
       version: process.env.npm_package_version || '1.0.0',
     };
 
