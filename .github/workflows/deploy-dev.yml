@@ -17,9 +17,10 @@ on:
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: nest-wallet-repo
-  ECS_CLUSTER: nest-wallet-cluster
-  ECS_SERVICE: nest-wallet-service
+  ECS_CLUSTER: nest-wallet-dev-cluster
+  ECS_SERVICE: nest-wallet-dev-service
   ECS_TASK_DEFINITION: nest-wallet-task-dev
+  ENVIRONMENT: dev
 
 jobs:
   lint:
@@ -77,17 +78,17 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "🔨 Building Docker image for ${{ env.ENVIRONMENT }}..."
-          docker build --build-arg ENV=${{ env.ENVIRONMENT }} -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }} .
-          docker build --build-arg ENV=${{ env.ENVIRONMENT }} -t $ECR_REGISTRY/$ECR_REPOSITORY:latest-${{ env.ENVIRONMENT }} .
+          echo "🔨 Building Docker image for development..."
+          docker build --build-arg ENV=${{ env.ENVIRONMENT }} -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build --build-arg ENV=${{ env.ENVIRONMENT }} -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           
           echo "📤 Pushing images to ECR..."
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }}
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest-${{ env.ENVIRONMENT }}
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           
           echo "✅ Image built and pushed successfully"
-          echo "📍 Image URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }}"
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG-${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+          echo "📍 Image URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Download current task definition
         run: |
@@ -105,7 +106,7 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
-          container-name: nest-wallet-container
+          container-name: nest-wallet-dev-container
           image: ${{ steps.build-image.outputs.image }}
 
       - name: Register new task definition
@@ -118,30 +119,21 @@ jobs:
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
           
-          if [ -z "$TASK_DEF_ARN" ]; then
-            echo "❌ Failed to register task definition"
-            exit 1
-          fi
-          
-          echo "✅ New task definition registered"
+          echo "✅ Task definition registered successfully"
           echo "📍 Task Definition ARN: $TASK_DEF_ARN"
-          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
-          
-          # Extract revision number for logging
-          REVISION=$(echo $TASK_DEF_ARN | cut -d':' -f6)
-          echo "📊 New revision: $REVISION"
+          echo "task-def-arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
 
-      - name: Update ECS service
+      - name: Deploy to ECS
         run: |
-          echo "🚀 Updating ECS service with new task definition..."
+          echo "🚀 Deploying to ECS development cluster..."
           
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE }} \
-            --task-definition $TASK_DEF_ARN \
+            --task-definition ${{ steps.register-task-def.outputs.task-def-arn }} \
             --force-new-deployment
           
-          echo "✅ ECS service updated successfully"
+          echo "✅ Deployment initiated successfully"
 
       - name: Wait for deployment to complete
         run: |
@@ -153,43 +145,32 @@ jobs:
           
           echo "✅ Deployment completed successfully"
 
+      - name: Get service status
+        run: |
+          echo "📊 Development service status:"
+          aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --query 'services[0].{ServiceName:serviceName,Status:status,DesiredCount:desiredCount,RunningCount:runningCount,PendingCount:pendingCount}' \
+            --output table
+
+      - name: Get ALB DNS name
+        run: |
+          echo "🌐 Development ALB DNS name:"
+          aws elbv2 describe-load-balancers \
+            --names nest-wallet-dev-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text
+
       - name: Deployment summary
         run: |
-          echo "📋 ==========================="
-          echo "📋 DEVELOPMENT DEPLOYMENT SUMMARY"
-          echo "📋 ==========================="
-          echo "🏷️  Image Tag: ${{ github.sha }}-${{ env.ENVIRONMENT }}"
-          echo "📦 Task Definition: $TASK_DEF_ARN"
-          echo "🌍 Region: ${{ env.AWS_REGION }}"
-          echo "🔧 Environment: ${{ env.ENVIRONMENT }}"
-          echo "📋 ==========================="
-          echo ""
-          echo "🔗 USEFUL LINKS:"
-          echo "🖥️  ECS Service: https://${{ env.AWS_REGION }}.console.aws.amazon.com/ecs/home?region=${{ env.AWS_REGION }}#/clusters/${{ env.ECS_CLUSTER }}/services/${{ env.ECS_SERVICE }}/details"
-          echo "🐳 ECR Repository: https://${{ env.AWS_REGION }}.console.aws.amazon.com/ecr/repositories/${{ env.ECR_REPOSITORY }}?region=${{ env.AWS_REGION }}"
-          echo "🔐 Secrets Manager: https://${{ env.AWS_REGION }}.console.aws.amazon.com/secretsmanager/listsecrets?region=${{ env.AWS_REGION }}"
-          echo ""
-          echo "✅ Development deployment completed successfully!"
-
-  notify-on-failure:
-    needs: [lint, deploy]
-    runs-on: ubuntu-latest
-    if: failure()
-
-    steps:
-      - name: Notify deployment failure
-        run: |
-          echo "❌ ==========================="
-          echo "❌ DEVELOPMENT DEPLOYMENT FAILED"
-          echo "❌ ==========================="
-          echo "📊 Check the logs above for details"
-          echo "🔧 Common issues to check:"
-          echo "   • ECS service is running"
-          echo "   • Task definition is valid"
-          echo "   • Container health checks are passing"
-          echo "   • Load balancer target group is healthy"
-          echo "   • IAM permissions for ECS operations"
-          echo "   • Secrets Manager permissions and values"
-          echo ""
-          echo "📚 Troubleshooting guide:"
-          echo "https://docs.aws.amazon.com/ecs/latest/userguide/troubleshooting.html" 
+          echo "🎉 Development Deployment Summary"
+          echo "================================="
+          echo "🏷️ Environment: Development"
+          echo "🐳 Image: ${{ steps.build-image.outputs.image }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Deployed by: ${{ github.actor }}"
+          echo "⏰ Deployed at: $(date -u)"
+          echo "🔗 ALB: nest-wallet-dev-alb"
+          echo "📊 Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "🔄 Service: ${{ env.ECS_SERVICE }}" 

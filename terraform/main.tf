@@ -27,119 +27,158 @@ provider "aws" {
   }
 }
 
-# VPC
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
+# 환경별 VPC 생성
+resource "aws_vpc" "environments" {
+  for_each = var.environments
+  
+  cidr_block           = each.value.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
 
   tags = {
-    Name = "${var.project_name}-vpc"
+    Name = "${var.project_name}-${each.key}-vpc"
+    Environment = each.key
   }
 }
 
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+# 환경별 Internet Gateway
+resource "aws_internet_gateway" "environments" {
+  for_each = var.environments
+  
+  vpc_id = aws_vpc.environments[each.key].id
 
   tags = {
-    Name = "${var.project_name}-igw"
+    Name = "${var.project_name}-${each.key}-igw"
+    Environment = each.key
   }
 }
 
-# Public Subnets
+# 환경별 Public Subnets
 resource "aws_subnet" "public" {
-  count             = length(var.public_subnets)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.public_subnets[count.index]
-  availability_zone = var.availability_zones[count.index]
+  for_each = {
+    for pair in setproduct(keys(var.environments), range(length(var.environments[keys(var.environments)[0]].public_subnets))) : 
+    "${pair[0]}-${pair[1]}" => {
+      env = pair[0]
+      idx = pair[1]
+    }
+  }
+  
+  vpc_id            = aws_vpc.environments[each.value.env].id
+  cidr_block        = var.environments[each.value.env].public_subnets[each.value.idx]
+  availability_zone = var.environments[each.value.env].availability_zones[each.value.idx]
 
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.project_name}-public-subnet-${count.index + 1}"
+    Name = "${var.project_name}-${each.value.env}-public-subnet-${each.value.idx + 1}"
+    Environment = each.value.env
   }
 }
 
-# Private Subnets
+# 환경별 Private Subnets
 resource "aws_subnet" "private" {
-  count             = length(var.private_subnets)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnets[count.index]
-  availability_zone = var.availability_zones[count.index]
+  for_each = {
+    for pair in setproduct(keys(var.environments), range(length(var.environments[keys(var.environments)[0]].private_subnets))) : 
+    "${pair[0]}-${pair[1]}" => {
+      env = pair[0]
+      idx = pair[1]
+    }
+  }
+  
+  vpc_id            = aws_vpc.environments[each.value.env].id
+  cidr_block        = var.environments[each.value.env].private_subnets[each.value.idx]
+  availability_zone = var.environments[each.value.env].availability_zones[each.value.idx]
 
   tags = {
-    Name = "${var.project_name}-private-subnet-${count.index + 1}"
+    Name = "${var.project_name}-${each.value.env}-private-subnet-${each.value.idx + 1}"
+    Environment = each.value.env
   }
 }
 
-# Route Table for Public Subnets
+# 환경별 Route Tables for Public Subnets
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  for_each = var.environments
+  
+  vpc_id = aws_vpc.environments[each.key].id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.environments[each.key].id
   }
 
   tags = {
-    Name = "${var.project_name}-public-rt"
+    Name = "${var.project_name}-${each.key}-public-rt"
+    Environment = each.key
   }
 }
 
-# Route Table Association for Public Subnets
+# 환경별 Route Table Associations for Public Subnets
 resource "aws_route_table_association" "public" {
-  count          = length(var.public_subnets)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
+  for_each = aws_subnet.public
+  
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.public[split("-", each.key)[0]].id
 }
 
-# NAT Gateway
+# 환경별 NAT Gateway EIP
 resource "aws_eip" "nat" {
+  for_each = var.environments
+  
   domain = "vpc"
   
   tags = {
-    Name = "${var.project_name}-nat-eip"
+    Name = "${var.project_name}-${each.key}-nat-eip"
+    Environment = each.key
   }
 }
 
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
+# 환경별 NAT Gateway
+resource "aws_nat_gateway" "environments" {
+  for_each = var.environments
+  
+  allocation_id = aws_eip.nat[each.key].id
+  subnet_id     = aws_subnet.public["${each.key}-0"].id
 
   tags = {
-    Name = "${var.project_name}-nat-gateway"
+    Name = "${var.project_name}-${each.key}-nat-gateway"
+    Environment = each.key
   }
 
-  depends_on = [aws_internet_gateway.main]
+  depends_on = [aws_internet_gateway.environments]
 }
 
-# Route Table for Private Subnets
+# 환경별 Route Tables for Private Subnets
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+  for_each = var.environments
+  
+  vpc_id = aws_vpc.environments[each.key].id
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
+    nat_gateway_id = aws_nat_gateway.environments[each.key].id
   }
 
   tags = {
-    Name = "${var.project_name}-private-rt"
+    Name = "${var.project_name}-${each.key}-private-rt"
+    Environment = each.key
   }
 }
 
-# Route Table Association for Private Subnets
+# 환경별 Route Table Associations for Private Subnets
 resource "aws_route_table_association" "private" {
-  count          = length(var.private_subnets)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
+  for_each = aws_subnet.private
+  
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private[split("-", each.key)[0]].id
 }
 
-# Security Groups
+# 환경별 Security Groups
 resource "aws_security_group" "alb" {
-  name        = "${var.project_name}-alb-sg"
-  description = "Security group for ALB"
-  vpc_id      = aws_vpc.main.id
+  for_each = var.environments
+  
+  name        = "${var.project_name}-${each.key}-alb-sg"
+  description = "Security group for ALB in ${each.key} environment"
+  vpc_id      = aws_vpc.environments[each.key].id
 
   ingress {
     description = "HTTP"
@@ -165,21 +204,24 @@ resource "aws_security_group" "alb" {
   }
 
   tags = {
-    Name = "${var.project_name}-alb-sg"
+    Name = "${var.project_name}-${each.key}-alb-sg"
+    Environment = each.key
   }
 }
 
 resource "aws_security_group" "ecs" {
-  name        = "${var.project_name}-ecs-sg"
-  description = "Security group for ECS tasks"
-  vpc_id      = aws_vpc.main.id
+  for_each = var.environments
+  
+  name        = "${var.project_name}-${each.key}-ecs-sg"
+  description = "Security group for ECS tasks in ${each.key} environment"
+  vpc_id      = aws_vpc.environments[each.key].id
 
   ingress {
     description     = "HTTP from ALB"
     from_port       = 3000
     to_port         = 3000
     protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
+    security_groups = [aws_security_group.alb[each.key].id]
   }
 
   egress {
@@ -190,31 +232,37 @@ resource "aws_security_group" "ecs" {
   }
 
   tags = {
-    Name = "${var.project_name}-ecs-sg"
+    Name = "${var.project_name}-${each.key}-ecs-sg"
+    Environment = each.key
   }
 }
 
-# Application Load Balancer
-resource "aws_lb" "main" {
-  name               = "${var.project_name}-alb"
+# 환경별 Application Load Balancer
+resource "aws_lb" "environments" {
+  for_each = var.environments
+  
+  name               = "${var.project_name}-${each.key}-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
-  subnets            = aws_subnet.public[*].id
+  security_groups    = [aws_security_group.alb[each.key].id]
+  subnets            = [for i in range(length(each.value.public_subnets)) : aws_subnet.public["${each.key}-${i}"].id]
 
   enable_deletion_protection = false
 
   tags = {
-    Name = "${var.project_name}-alb"
+    Name = "${var.project_name}-${each.key}-alb"
+    Environment = each.key
   }
 }
 
-# Main Target Group for Rolling Deployment
-resource "aws_lb_target_group" "main" {
-  name        = "${var.project_name}-tg"
+# 환경별 Target Groups
+resource "aws_lb_target_group" "environments" {
+  for_each = var.environments
+  
+  name        = "${var.project_name}-${each.key}-tg"
   port        = 3000
   protocol    = "HTTP"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = aws_vpc.environments[each.key].id
   target_type = "ip"
 
   health_check {
@@ -230,23 +278,26 @@ resource "aws_lb_target_group" "main" {
   }
 
   tags = {
-    Name = "${var.project_name}-tg"
+    Name = "${var.project_name}-${each.key}-tg"
+    Environment = each.key
   }
 }
 
-# ALB Listener
-resource "aws_lb_listener" "main" {
-  load_balancer_arn = aws_lb.main.arn
+# 환경별 ALB Listeners
+resource "aws_lb_listener" "environments" {
+  for_each = var.environments
+  
+  load_balancer_arn = aws_lb.environments[each.key].arn
   port              = "80"
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.main.arn
+    target_group_arn = aws_lb_target_group.environments[each.key].arn
   }
 }
 
-# ECR Repository
+# ECR Repository (공유)
 resource "aws_ecr_repository" "main" {
   name                 = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
@@ -281,9 +332,11 @@ resource "aws_ecr_lifecycle_policy" "main" {
   })
 }
 
-# ECS Cluster
-resource "aws_ecs_cluster" "main" {
-  name = "${var.project_name}-cluster"
+# 환경별 ECS Clusters
+resource "aws_ecs_cluster" "environments" {
+  for_each = var.environments
+  
+  name = "${var.project_name}-${each.key}-cluster"
 
   setting {
     name  = "containerInsights"
@@ -291,13 +344,16 @@ resource "aws_ecs_cluster" "main" {
   }
 
   tags = {
-    Name = "${var.project_name}-cluster"
+    Name = "${var.project_name}-${each.key}-cluster"
+    Environment = each.key
   }
 }
 
-# ECS Task Definition
-resource "aws_ecs_task_definition" "main" {
-  family                   = "${var.project_name}-task"
+# 환경별 ECS Task Definitions
+resource "aws_ecs_task_definition" "environments" {
+  for_each = var.environments
+  
+  family                   = each.key == "dev" ? "${var.project_name}-task-dev" : "${var.project_name}-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.task_cpu
@@ -307,7 +363,7 @@ resource "aws_ecs_task_definition" "main" {
 
   container_definitions = jsonencode([
     {
-      name  = "${var.project_name}-container"
+      name  = "${var.project_name}-${each.key}-container"
       image = "${aws_ecr_repository.main.repository_url}:latest"
       
       portMappings = [
@@ -318,7 +374,7 @@ resource "aws_ecs_task_definition" "main" {
       ]
 
       environment = [
-        for key, value in var.prod_environment_vars : {
+        for key, value in (each.key == "dev" ? var.dev_environment_vars : var.prod_environment_vars) : {
           name  = key
           value = value
         }
@@ -327,18 +383,18 @@ resource "aws_ecs_task_definition" "main" {
       secrets = [
         {
           name      = "NEXT_PUBLIC_API_URL"
-          valueFrom = "${aws_secretsmanager_secret.prod.arn}:NEXT_PUBLIC_API_URL::"
+          valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:NEXT_PUBLIC_API_URL::"
         },
         {
           name      = "NEXT_PUBLIC_API_BASE_URL"
-          valueFrom = "${aws_secretsmanager_secret.prod.arn}:NEXT_PUBLIC_API_BASE_URL::"
+          valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:NEXT_PUBLIC_API_BASE_URL::"
         }
       ]
 
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.main.name
+          awslogs-group         = aws_cloudwatch_log_group.environments[each.key].name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ecs"
         }
@@ -355,119 +411,60 @@ resource "aws_ecs_task_definition" "main" {
   ])
 
   tags = {
-    Name = "${var.project_name}-task-definition"
+    Name = "${var.project_name}-${each.key}-task-definition"
+    Environment = each.key
   }
 }
 
-# 개발 환경용 Task Definition
-resource "aws_ecs_task_definition" "dev" {
-  family                   = "${var.project_name}-task-dev"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = var.task_cpu
-  memory                   = var.task_memory
-  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
-
-  container_definitions = jsonencode([
-    {
-      name  = "${var.project_name}-container"
-      image = "${aws_ecr_repository.main.repository_url}:latest"
-      
-      portMappings = [
-        {
-          containerPort = 3000
-          protocol      = "tcp"
-        }
-      ]
-
-      environment = [
-        for key, value in var.dev_environment_vars : {
-          name  = key
-          value = value
-        }
-      ]
-
-      secrets = [
-        {
-          name      = "NEXT_PUBLIC_API_URL"
-          valueFrom = "${aws_secretsmanager_secret.dev.arn}:NEXT_PUBLIC_API_URL::"
-        },
-        {
-          name      = "NEXT_PUBLIC_API_BASE_URL"
-          valueFrom = "${aws_secretsmanager_secret.dev.arn}:NEXT_PUBLIC_API_BASE_URL::"
-        }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.main.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "ecs"
-        }
-      }
-
-      healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 60
-      }
-    }
-  ])
-
-  tags = {
-    Name = "${var.project_name}-task-definition-dev"
-  }
-}
-
-# ECS Service for Rolling Deployment
-resource "aws_ecs_service" "main" {
-  name            = "${var.project_name}-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.main.arn
+# 환경별 ECS Services
+resource "aws_ecs_service" "environments" {
+  for_each = var.environments
+  
+  name            = "${var.project_name}-${each.key}-service"
+  cluster         = aws_ecs_cluster.environments[each.key].id
+  task_definition = aws_ecs_task_definition.environments[each.key].arn
   desired_count   = var.service_desired_count
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = aws_subnet.private[*].id
-    security_groups  = [aws_security_group.ecs.id]
+    subnets          = [for i in range(length(each.value.private_subnets)) : aws_subnet.private["${each.key}-${i}"].id]
+    security_groups  = [aws_security_group.ecs[each.key].id]
     assign_public_ip = false
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.main.arn
-    container_name   = "${var.project_name}-container"
+    target_group_arn = aws_lb_target_group.environments[each.key].arn
+    container_name   = "${var.project_name}-${each.key}-container"
     container_port   = 3000
   }
 
-  # Rolling 배포 설정
   deployment_controller {
     type = "ECS"
   }
 
-  # 롤링 배포 설정
   deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 100
 
   tags = {
-    Name = "${var.project_name}-service"
+    Name = "${var.project_name}-${each.key}-service"
+    Environment = each.key
   }
 }
 
-# CloudWatch Log Group
-resource "aws_cloudwatch_log_group" "main" {
-  name              = "/ecs/${var.project_name}"
+# 환경별 CloudWatch Log Groups
+resource "aws_cloudwatch_log_group" "environments" {
+  for_each = var.environments
+  
+  name              = "/ecs/${var.project_name}-${each.key}"
   retention_in_days = 7
 
   tags = {
-    Name = "${var.project_name}-log-group"
+    Name = "${var.project_name}-${each.key}-log-group"
+    Environment = each.key
   }
 }
 
-# IAM Role for ECS Execution
+# IAM Role for ECS Execution (공유)
 resource "aws_iam_role" "ecs_execution_role" {
   name = "${var.project_name}-ecs-execution-role"
 
@@ -512,7 +509,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets_policy" {
   })
 }
 
-# IAM Role for ECS Task
+# IAM Role for ECS Task (공유)
 resource "aws_iam_role" "ecs_task_role" {
   name = "${var.project_name}-ecs-task-role"
 
@@ -530,7 +527,7 @@ resource "aws_iam_role" "ecs_task_role" {
   })
 }
 
-# S3 Bucket for Terraform State
+# S3 Bucket for Terraform State (공유)
 resource "aws_s3_bucket" "terraform_state" {
   bucket = "nest-wallet-terraform-state"
 
@@ -565,7 +562,7 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
   restrict_public_buckets = true
 }
 
-# DynamoDB Table for Terraform State Locking
+# DynamoDB Table for Terraform State Locking (공유)
 resource "aws_dynamodb_table" "terraform_locks" {
   name           = "nest-wallet-terraform-locks"
   billing_mode   = "PAY_PER_REQUEST"
@@ -581,22 +578,26 @@ resource "aws_dynamodb_table" "terraform_locks" {
   }
 }
 
-# Auto Scaling Target
-resource "aws_appautoscaling_target" "ecs_target" {
+# 환경별 Auto Scaling Targets
+resource "aws_appautoscaling_target" "ecs_targets" {
+  for_each = var.environments
+  
   max_capacity       = 10
   min_capacity       = 2
-  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.main.name}"
+  resource_id        = "service/${aws_ecs_cluster.environments[each.key].name}/${aws_ecs_service.environments[each.key].name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 }
 
-# CPU 기반 Scale Up Policy
+# 환경별 CPU 기반 Scale Up Policies
 resource "aws_appautoscaling_policy" "ecs_policy_up" {
-  name               = "${var.project_name}-scale-up"
+  for_each = var.environments
+  
+  name               = "${var.project_name}-${each.key}-scale-up"
   policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
+  resource_id        = aws_appautoscaling_target.ecs_targets[each.key].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_targets[each.key].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs_targets[each.key].service_namespace
 
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {
@@ -606,13 +607,15 @@ resource "aws_appautoscaling_policy" "ecs_policy_up" {
   }
 }
 
-# CPU 기반 Scale Down Policy
+# 환경별 CPU 기반 Scale Down Policies
 resource "aws_appautoscaling_policy" "ecs_policy_down" {
-  name               = "${var.project_name}-scale-down"
+  for_each = var.environments
+  
+  name               = "${var.project_name}-${each.key}-scale-down"
   policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
+  resource_id        = aws_appautoscaling_target.ecs_targets[each.key].resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_targets[each.key].scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs_targets[each.key].service_namespace
 
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {

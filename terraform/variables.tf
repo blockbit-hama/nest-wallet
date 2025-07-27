@@ -16,30 +16,57 @@ variable "environment" {
   default     = "production"
 }
 
+# 환경별 네트워크 설정
+variable "environments" {
+  description = "Environment configurations"
+  type = map(object({
+    vpc_cidr         = string
+    public_subnets   = list(string)
+    private_subnets  = list(string)
+    availability_zones = list(string)
+  }))
+  default = {
+    dev = {
+      vpc_cidr         = "10.0.0.0/16"
+      public_subnets   = ["10.0.1.0/24", "10.0.2.0/24"]
+      private_subnets  = ["10.0.11.0/24", "10.0.12.0/24"]
+      availability_zones = ["ap-northeast-2a", "ap-northeast-2c"]
+    }
+    prod = {
+      vpc_cidr         = "10.1.0.0/16"
+      public_subnets   = ["10.1.1.0/24", "10.1.2.0/24"]
+      private_subnets  = ["10.1.11.0/24", "10.1.12.0/24"]
+      availability_zones = ["ap-northeast-2a", "ap-northeast-2c"]
+    }
+  }
+}
+
+# 기존 변수들 (하위 호환성을 위해 유지)
 variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+  description = "CIDR block for VPC (deprecated - use environments variable)"
   type        = string
   default     = "10.0.0.0/16"
 }
 
 variable "availability_zones" {
-  description = "Availability zones"
+  description = "Availability zones (deprecated - use environments variable)"
   type        = list(string)
   default     = ["ap-northeast-2a", "ap-northeast-2c"]
 }
 
 variable "public_subnets" {
-  description = "CIDR blocks for public subnets"
+  description = "CIDR blocks for public subnets (deprecated - use environments variable)"
   type        = list(string)
   default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
 variable "private_subnets" {
-  description = "CIDR blocks for private subnets"
+  description = "CIDR blocks for private subnets (deprecated - use environments variable)"
   type        = list(string)
   default     = ["10.0.11.0/24", "10.0.12.0/24"]
 }
 
+# ECS 설정
 variable "task_cpu" {
   description = "CPU units for ECS task"
   type        = number
