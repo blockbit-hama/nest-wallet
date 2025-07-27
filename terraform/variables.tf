@@ -115,7 +115,6 @@ variable "dev_environment_vars" {
   type        = map(string)
   default = {
     NODE_ENV                           = "development"
-    PORT                               = "3001"
     NEXT_PUBLIC_INFURA_API_KEY         = "9366572d83da40e4b827a664e6194e06"
     NEXT_PUBLIC_BLOCKCYPHER_TOKEN      = "your-dev-blockcypher-token"
     NEXT_PUBLIC_ETHERSCAN_API_KEY      = "4EM3ICECJSNWCH36FZZMV54IDIYNPE395X"
@@ -130,7 +129,6 @@ variable "prod_environment_vars" {
   type        = map(string)
   default = {
     NODE_ENV                           = "production"
-    PORT                               = "3000"
     NEXT_PUBLIC_INFURA_API_KEY         = "9366572d83da40e4b827a664e6194e06"
     NEXT_PUBLIC_BLOCKCYPHER_TOKEN      = "your-blockcypher-token-here"
     NEXT_PUBLIC_ETHERSCAN_API_KEY      = "4EM3ICECJSNWCH36FZZMV54IDIYNPE395X"

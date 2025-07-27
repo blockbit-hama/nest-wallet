@@ -14,6 +14,7 @@ resource "aws_secretsmanager_secret" "dev" {
 resource "aws_secretsmanager_secret_version" "dev" {
   secret_id = aws_secretsmanager_secret.dev.id
   secret_string = jsonencode({
+    PORT                      = "3000"
     NEXT_PUBLIC_API_URL      = "https://dev-api.blockbit.com"
     NEXT_PUBLIC_API_BASE_URL = "https://dev-api.blockbit.com/api"
   })
@@ -33,6 +34,7 @@ resource "aws_secretsmanager_secret" "prod" {
 resource "aws_secretsmanager_secret_version" "prod" {
   secret_id = aws_secretsmanager_secret.prod.id
   secret_string = jsonencode({
+    PORT                      = "3000"
     NEXT_PUBLIC_API_URL      = "https://api.blockbit.com"
     NEXT_PUBLIC_API_BASE_URL = "https://api.blockbit.com/api"
   })
