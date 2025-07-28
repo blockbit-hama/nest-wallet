@@ -3,6 +3,9 @@ import HDKey from 'hdkey';
 import { Wallet } from '@ethereumjs/wallet';
 import { keccak256 } from 'js-sha3';
 import { createHash } from 'crypto';
+import EC from 'elliptic';
+
+const ec = new EC.ec('secp256k1');
 
 export interface WalletInfo {
   id: string;
@@ -138,8 +141,9 @@ export const createHDWallet = async (config: HDWalletConfig): Promise<WalletInfo
     if (!masterKey.privateKey) {
       throw new Error('마스터 키 생성에 실패했습니다.');
     }
-    const masterWallet = Wallet.fromPrivateKey(masterKey.privateKey);
-    const masterAddress = masterWallet.getAddressString();
+    
+    // 공개키를 Base64로 인코딩하여 masterAddress 생성 (88자)
+    const masterAddress = generateMasterAddressFromPublicKey(masterKey.privateKey);
     
     // 6. 각 코인별 주소와 개인키 생성
     const addresses: WalletInfo['addresses'] = {};
@@ -379,10 +383,7 @@ export const signMessageWithWallet = async (
     console.log('메시지 해시:', messageHash);
     
     // 실제 secp256k1 서명 생성
-    const { ec } = require('elliptic');
-    const elliptic = new ec('secp256k1');
-    
-    const keyPair = elliptic.keyFromPrivate(privateKey, 'hex');
+    const keyPair = ec.keyFromPrivate(privateKey, 'hex');
     const signature = keyPair.sign(messageHash).toDER('hex');
     
     console.log('생성된 서명:', signature);
@@ -581,5 +582,32 @@ export const regenerateAllWalletPrivateKeys = async (): Promise<{ success: numbe
     console.error('모든 지갑 privateKeys 재생성 실패:', error);
     const wallets = getWalletsFromStorage();
     return { success: 0, failed: wallets.length };
+  }
+}; 
+
+/**
+ * 공개키를 Base64로 인코딩하여 masterAddress 생성
+ * @param privateKey - 개인키 (Buffer)
+ * @returns Base64로 인코딩된 공개키 (88자)
+ */
+const generateMasterAddressFromPublicKey = (privateKey: Buffer): string => {
+  try {
+    // 개인키를 hex 문자열로 변환
+    const privateKeyHex = privateKey.toString('hex');
+    
+    // elliptic 라이브러리로 키페어 생성
+    const keyPair = ec.keyFromPrivate(privateKeyHex);
+    
+    // uncompressed 공개키 생성 (04 + x + y)
+    const publicKey = keyPair.getPublic(false, 'hex'); // false = uncompressed
+    
+    // hex를 Buffer로 변환 후 Base64로 인코딩
+    const publicKeyBuffer = Buffer.from(publicKey, 'hex');
+    const base64PublicKey = publicKeyBuffer.toString('base64');
+    
+    return base64PublicKey;
+  } catch (error) {
+    console.error('Master address 생성 실패:', error);
+    throw new Error('Master address 생성 중 오류가 발생했습니다.');
   }
 }; 
