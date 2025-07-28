@@ -217,8 +217,8 @@ resource "aws_security_group" "ecs" {
 
   ingress {
     description     = "HTTP from ALB"
-    from_port       = 3000
-    to_port         = 3000
+    from_port       = 9002
+    to_port         = 9002
     protocol        = "tcp"
     security_groups = [aws_security_group.alb[each.key].id]
   }
@@ -259,7 +259,7 @@ resource "aws_lb_target_group" "environments" {
   for_each = var.environments
   
   name        = "${var.project_name}-${each.key}-tg"
-  port        = 3000
+  port        = 9002
   protocol    = "HTTP"
   vpc_id      = aws_vpc.environments[each.key].id
   target_type = "ip"
@@ -367,7 +367,7 @@ resource "aws_ecs_task_definition" "environments" {
       
       portMappings = [
         {
-          containerPort = 3000
+          containerPort = 9002
           protocol      = "tcp"
         }
       ]
@@ -400,7 +400,7 @@ resource "aws_ecs_task_definition" "environments" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+        command     = ["CMD-SHELL", "curl -f http://localhost:9002/ || exit 1"]
         interval    = 60    # 30 → 60초로 증가
         timeout     = 10    # 5 → 10초로 증가
         retries     = 5     # 3 → 5회로 증가
@@ -434,7 +434,7 @@ resource "aws_ecs_service" "environments" {
   load_balancer {
     target_group_arn = aws_lb_target_group.environments[each.key].arn
     container_name   = "${var.project_name}-${each.key}-container"
-    container_port   = 3000
+    container_port   = 9002
   }
 
   deployment_controller {
