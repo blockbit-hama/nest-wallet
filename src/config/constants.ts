@@ -7,7 +7,7 @@ export const ENV = {
 
 // API 엔드포인트
 export const API_ENDPOINTS = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001',
   VOUCHER: '/api/voucher',
   EXCHANGE_RATE: '/api/exchange-rate',
   COUPON_TRANSACTION: '/api/coupon-transaction',

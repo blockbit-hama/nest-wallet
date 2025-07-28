@@ -1,6 +1,6 @@
 // 쿠폰 트랜잭션 API 관련 함수들
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001';
 
 export interface CreateCouponTransactionDto {
   masterAddress: string;
