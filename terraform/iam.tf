@@ -5,11 +5,6 @@ resource "aws_iam_user" "github_actions" {
   tags = {
     Name = "GitHub Actions User"
   }
-  
-  # Terraform destroy 시에도 사용자 보존 (액세스 키 유지)
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # IAM Policy for GitHub Actions
