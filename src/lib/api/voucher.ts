@@ -2,6 +2,13 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001';
 
+// 환경 변수 로그 출력 (클라이언트 사이드)
+console.log('🔧 Voucher API Configuration:');
+console.log('   NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+console.log('   NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
+console.log('   Final API_BASE_URL:', API_BASE_URL);
+console.log('=====================================');
+
 export interface RegisterCouponRequest {
   masterAddress: string;
   nonce: string;
@@ -20,6 +27,24 @@ export interface GetCouponsResponse {
   success: boolean;
   message: string;
   coupons?: any[];
+  error?: string;
+}
+
+export interface CreateVoucherRequest {
+  code: string;
+  amount: number;
+  fiatCode: string;
+  status?: string;
+  expireDate: string;
+  redeemDate?: string;
+  maxTotalCoupons?: number;
+  couponExpireDate: string;
+}
+
+export interface CreateVoucherResponse {
+  success: boolean;
+  message: string;
+  voucher?: any;
   error?: string;
 }
 
@@ -47,6 +72,46 @@ export interface CouponTransferResponse {
   data?: any;
   error?: string;
 }
+
+/**
+ * 바우처 생성 API
+ * @param voucherData - 바우처 생성 데이터
+ * @returns 바우처 생성 결과
+ */
+export const createVoucher = async (
+  voucherData: CreateVoucherRequest,
+): Promise<CreateVoucherResponse> => {
+  try {
+    console.log('바우처 생성 시작:', voucherData);
+    
+    const requestUrl = `${API_BASE_URL}/api/v1/vouchers/create`;
+    
+    console.log('바우처 생성 요청:', { url: requestUrl, data: voucherData });
+    
+    const response = await axios.post(requestUrl, voucherData);
+    console.log('바우처 생성 응답:', response.data);
+    
+    return {
+      success: true,
+      message: response.data.message || '바우처가 성공적으로 생성되었습니다.',
+      voucher: response.data.voucher,
+    };
+  } catch (error: any) {
+    console.error('바우처 생성 실패:', error);
+    
+    // 서버에서 오는 에러 메시지 처리
+    const errorMessage = error.response?.data?.message || 
+                        error.response?.data?.error || 
+                        error.message || 
+                        '바우처 생성에 실패했습니다.';
+    
+    return {
+      success: false,
+      message: errorMessage,
+      error: errorMessage,
+    };
+  }
+};
 
 /**
  * Nonce 생성 API
