@@ -1,0 +1,22 @@
+# Master Address 규칙 (핵심 보안 규칙)
+
+## 정의
+- master address는 앱을 대표하는 주소이며 개인키를 가짐
+- gas-coupon과 통신할 때 인증용으로만 사용
+- 송금에는 사용하지 않음
+
+## 기술적 요구사항
+- ECDSA로 생성된 Base64(uncompressed 65 bytes) 형식 88자
+- 개인키는 안전한 저장소에 보관
+- 공개키는 Base64 인코딩으로 관리
+
+## 인증 프로세스
+1. gas-coupon이 nonce 값을 제공
+2. master address의 개인키로 서명 생성
+3. 서명 공식: sign(sha256(master address + nonce))
+4. 서명된 값을 gas-coupon에 전송하여 인증
+
+description:
+globs:
+alwaysApply: true
+---
