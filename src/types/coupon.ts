@@ -16,6 +16,20 @@ export interface Coupon {
   usedCount: number;
 }
 
+export interface Voucher {
+  id: number;
+  code: string;
+  amount: string;
+  fiatCode: string;
+  status: 'ISSUED' | 'EXPIRED' | 'REDEEMED';
+  totalCouponsIssued: number;
+  maxTotalCoupons?: number;
+  createDate: string;
+  expireDate: string;
+  redeemDate: string | null;
+  couponExpireDate: string;
+}
+
 export interface CouponSummary {
   totalCount: number;
   activeCount: number;

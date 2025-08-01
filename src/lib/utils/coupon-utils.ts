@@ -84,6 +84,34 @@ export function getCouponStatusText(status: string): string {
   }
 }
 
+// 바우처 상태 텍스트 반환
+export function getVoucherStatusText(status: string): string {
+  switch (status) {
+    case 'ISSUED':
+      return '발행됨';
+    case 'EXPIRED':
+      return '만료됨';
+    case 'REDEEMED':
+      return '사용 완료';
+    default:
+      return '알 수 없음';
+  }
+}
+
+// 바우처 상태에 따른 스타일 클래스 반환
+export function getVoucherStatusClass(status: string): string {
+  switch (status) {
+    case 'ISSUED':
+      return 'text-green-600 bg-green-100';
+    case 'EXPIRED':
+      return 'text-red-600 bg-red-100';
+    case 'REDEEMED':
+      return 'text-gray-600 bg-gray-100';
+    default:
+      return 'text-gray-600 bg-gray-100';
+  }
+}
+
 // 날짜 포맷팅
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
