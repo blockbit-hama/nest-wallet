@@ -3,8 +3,9 @@ import {
   RegisterCouponRequest, 
   RegisterCouponResponse, 
   CouponListResponse,
-  CreateCouponTransactionRequest,
-  CreateCouponTransactionResponse
+  SponsorTransactionRequest,
+  SponsorTransactionResponse,
+  TransactionStatusResponse
 } from '../../types/coupon';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9001/api';
@@ -65,9 +66,9 @@ export async function getCouponsByMasterAddress(
   return response.json();
 }
 
-// 쿠폰 트랜잭션 생성 (쿠폰 사용)
-export async function createCouponTransaction(data: CreateCouponTransactionRequest): Promise<CreateCouponTransactionResponse> {
-  const response = await fetch(`${API_BASE_URL}/v1/coupons/transaction`, {
+// 스폰서 트랜잭션 생성 (쿠폰 사용)
+export async function sponsorTransaction(data: SponsorTransactionRequest): Promise<SponsorTransactionResponse> {
+  const response = await fetch(`${API_BASE_URL}/v1/transaction/sponsor`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -77,7 +78,24 @@ export async function createCouponTransaction(data: CreateCouponTransactionReque
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `쿠폰 트랜잭션 생성 실패: ${response.status}`);
+    throw new Error(errorData.message || `스폰서 트랜잭션 생성 실패: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// 트랜잭션 상태 조회
+export async function getTransactionStatus(transactionId: string): Promise<TransactionStatusResponse> {
+  const response = await fetch(`${API_BASE_URL}/v1/transaction/status/${transactionId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `트랜잭션 상태 조회 실패: ${response.status}`);
   }
 
   return response.json();

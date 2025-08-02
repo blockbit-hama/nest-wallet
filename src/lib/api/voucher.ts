@@ -50,27 +50,28 @@ export interface CreateVoucherResponse {
 
 export interface CouponTransferRequest {
   masterAddress: string;
-  currencyId: string;
-  sender_address: string;
-  recipientAddress: string;
-  couponList: Array<{
-    couponCode: string;
-    amount: string;
-  }>;
-  estimatedFee: string;
-  feeInDollar: string;
-  opswalletfeeInDollar: string;
-  signedTransaction: string;
   signature: string;
   nonce: string;
-  memo: string;
+  currencyId: string;
+  estimatedFee: string;
+  feeInDollar: string;
+  opswalletFeeInDollar?: string;
+  couponList: Array<{
+    couponCode: string;
+    amount: number;
+  }>;
+  senderAddress?: string;
+  transaction?: {
+    serializedTransaction: string;
+    userSignature?: string;
+    userPublicKey?: string;
+  };
+  memo?: string;
 }
 
 export interface CouponTransferResponse {
-  success: boolean;
-  message: string;
-  data?: any;
-  error?: string;
+  uuid: string;
+  status: string;
 }
 
 /**
@@ -246,7 +247,7 @@ export const getCouponsByMasterAddress = async (masterAddress: string): Promise<
 };
 
 /**
- * 쿠폰 전송 API
+ * 쿠폰 전송 API (스폰서 트랜잭션)
  * @param transferData - 전송 데이터
  * @returns 전송 결과
  */
@@ -254,7 +255,7 @@ export const createCouponTransfer = async (transferData: CouponTransferRequest):
   try {
     console.log('쿠폰 전송 시작:', transferData);
     
-    const requestUrl = `${API_BASE_URL}/api/v1/coupons/transfer`;
+    const requestUrl = `${API_BASE_URL}/api/v1/transaction/sponsor`;
     const response = await axios.post(requestUrl, transferData);
     
     console.log('쿠폰 전송 응답:', response.data);
@@ -262,10 +263,6 @@ export const createCouponTransfer = async (transferData: CouponTransferRequest):
     return response.data;
   } catch (error) {
     console.error('쿠폰 전송 실패:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : '쿠폰 전송에 실패했습니다.',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    throw new Error(error instanceof Error ? error.message : '쿠폰 전송에 실패했습니다.');
   }
 };

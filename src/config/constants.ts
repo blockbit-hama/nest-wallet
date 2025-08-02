@@ -10,7 +10,8 @@ export const API_ENDPOINTS = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001',
   VOUCHER: '/api/voucher',
   EXCHANGE_RATE: '/api/exchange-rate',
-  COUPON_TRANSACTION: '/api/coupon-transaction',
+  SPONSOR_TRANSACTION: '/api/v1/transaction/sponsor',
+  TRANSACTION_STATUS: '/api/v1/transaction/status',
   NONCE: '/api/nonce'
 } as const;
 

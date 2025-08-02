@@ -79,23 +79,40 @@ export interface CreateNonceResponse {
   expiresAt: string;
 }
 
-export interface CreateCouponTransactionRequest {
-  masterAddress: string;
-  fiatCode: string;
-  senderAddress: string;
-  recipientAddress: string;
-  couponList: Array<{ couponCode: string; amount: string }>;
-  estimatedFee: string;
-  feeInDollar: string;
-  opswalletfeeInDollar: string;
-  signedTransaction: string;
-  signature: string;
-  nonce: string;
+export interface SponsorTransactionRequest {
+  masterAddress: string; // 앱고유주소
+  signature: string; // masterAddress + nonce의 서명
+  nonce: string; // 서버에서 보낸 인증용 인자
+  
+  currencyId: string; // 송금(스왑) 코인 종류 (필수)
+  estimatedFee: string; // 고객 송금시 필요한 예상 수수료 * 1.5
+  feeInDollar: string; // estimatedFee의 달러 환산
+  opswalletFeeInDollar?: string; // optional - 우리가 독립적으로 먼저 보내 줄 때 필요한 예상 수수료
+  
+  couponList: Array<{ // 사용할 쿠폰 리스트 (amount 총량은 feeInDollar + opswalletFeeInDollar 보다 커야한다)
+    couponCode: string;
+    amount: number;
+  }>;
+  
+  senderAddress?: string; // optional - 우리가 독립적으로 고객에게 보내 줄 때 고객 주소
+  
+  transaction?: { // 고객이 만든 트랜잭션 (이더리움,솔라나 아무거나)
+    serializedTransaction: string; // 이더리움은 이것만 필요
+    userSignature?: string; // optional
+    userPublicKey?: string; // optional
+  };
+  
   memo?: string;
 }
 
-export interface CreateCouponTransactionResponse {
-  transactionId: string;
-  status: string;
-  couponList: Array<{ couponCode: string; usedAmount: string }>;
+export interface SponsorTransactionResponse {
+  uuid: string; // 쿠폰서버에 보낸 행위 대한 대표 ID (transactionId)
+  status: string; // 현재 상태 (INIT, PENDING, CONFIRMED, ERROR, RETRY)
+}
+
+export interface TransactionStatusResponse {
+  id: string; // transactionId
+  txid: string | null; // 고객송금트랜잭션의 txid
+  currencyId: string;
+  status: string; // 현재 상태 (INIT, PENDING, CONFIRMED, ERROR, RETRY, COMPLETED)
 }

@@ -120,19 +120,22 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     setLoadingStep("트랜잭션 준비 중...");
     const couponTransferData = {
       masterAddress,
-      currencyId: transferData.currency,
-      sender_address: transferData.senderAddress,
-      recipientAddress: transferData.recipientAddress,
-      couponList: transferData.selectedCoupons.map(coupon => ({
-        couponCode: coupon.code,
-        amount: (parseFloat(coupon.amountRemaining || coupon.value || "0") * 0.8).toFixed(2) // 쿠폰 금액의 80% 사용 (수수료 포함)
-      })),
-      estimatedFee: transferData.estimatedFee,
-      feeInDollar: transferData.feeInDollar,
-      opswalletfeeInDollar: transferData.opswalletFeeInDollar || "1.00",
-      signedTransaction,
       signature: authSignature,
       nonce,
+      currencyId: transferData.currency,
+      estimatedFee: transferData.estimatedFee,
+      feeInDollar: transferData.feeInDollar,
+      opswalletFeeInDollar: transferData.opswalletFeeInDollar || "1.00",
+      couponList: transferData.selectedCoupons.map(coupon => ({
+        couponCode: coupon.code,
+        amount: parseFloat((parseFloat(coupon.amountRemaining || coupon.value || "0") * 0.8).toFixed(2)) // 쿠폰 금액의 80% 사용 (수수료 포함)
+      })),
+      senderAddress: transferData.senderAddress,
+      transaction: {
+        serializedTransaction: signedTransaction,
+        userSignature: authSignature,
+        userPublicKey: masterAddress
+      },
       memo: "송금에 필요한 수수료 대납 요청"
     };
 
@@ -141,8 +144,8 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     const response = await createCouponTransfer(couponTransferData);
     console.log('쿠폰 전송 성공:', response);
 
-    if (!response.success) {
-      throw new Error(response.message || '쿠폰 전송에 실패했습니다.');
+    if (!response.uuid) {
+      throw new Error('쿠폰 전송에 실패했습니다.');
     }
   };
 
