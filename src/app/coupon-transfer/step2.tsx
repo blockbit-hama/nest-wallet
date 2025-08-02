@@ -126,10 +126,7 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
       estimatedFee: transferData.estimatedFee,
       feeInDollar: transferData.feeInDollar,
       opswalletFeeInDollar: transferData.opswalletFeeInDollar || "1.00",
-      couponList: transferData.selectedCoupons.map(coupon => ({
-        couponCode: coupon.code,
-        amount: parseFloat((parseFloat(coupon.amountRemaining || coupon.value || "0") * 0.8).toFixed(2)) // 쿠폰 금액의 80% 사용 (수수료 포함)
-      })),
+      couponList: calculateOptimalCouponUsage(transferData.selectedCoupons, parseFloat(transferData.feeInDollar) + parseFloat(transferData.opswalletFeeInDollar || "0")),
       senderAddress: transferData.senderAddress,
       transaction: {
         serializedTransaction: signedTransaction,
@@ -246,6 +243,49 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     onComplete();
   };
 
+  // 최적의 쿠폰 사용량 계산 (적은 양부터 차감)
+  const calculateOptimalCouponUsage = (selectedCoupons: any[], requiredAmount: number) => {
+    console.log('🎯 Calculating optimal coupon usage for required amount:', requiredAmount);
+    
+    // 쿠폰을 금액 순으로 정렬 (적은 것부터)
+    const sortedCoupons = [...selectedCoupons].sort((a, b) => {
+      const amountA = parseFloat(a.amountRemaining || a.value || "0");
+      const amountB = parseFloat(b.amountRemaining || b.value || "0");
+      return amountA - amountB;
+    });
+
+    console.log('📊 Sorted coupons (ascending):', sortedCoupons.map(c => ({
+      code: c.code,
+      amount: c.amountRemaining || c.value
+    })));
+
+    let remainingRequired = requiredAmount;
+    const couponUsage: Array<{ couponCode: string; amount: number }> = [];
+
+    // 적은 쿠폰부터 차감
+    for (const coupon of sortedCoupons) {
+      const couponAmount = parseFloat(coupon.amountRemaining || coupon.value || "0");
+      
+      if (remainingRequired <= 0) break;
+      
+      const useAmount = Math.min(couponAmount, remainingRequired);
+      couponUsage.push({
+        couponCode: coupon.code,
+        amount: parseFloat(useAmount.toFixed(2))
+      });
+      
+      remainingRequired -= useAmount;
+      console.log(`💳 Using coupon ${coupon.code}: ${useAmount.toFixed(2)} (remaining: ${remainingRequired.toFixed(2)})`);
+    }
+
+    if (remainingRequired > 0) {
+      console.warn(`⚠️ Insufficient coupon amount. Still need: ${remainingRequired.toFixed(2)}`);
+    }
+
+    console.log('✅ Final coupon usage:', couponUsage);
+    return couponUsage;
+  };
+
   return (
     <div className="min-h-screen" style={{ background: '#14151A' }}>
       {/* 헤더 */}
@@ -353,6 +393,10 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
                 <div className="flex justify-between">
                   <span className="text-gray-400">수수료 (USD):</span>
                   <span className="text-white">{transferData.feeInDollar}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">OpsWallet 수수료 (USD):</span>
+                  <span className="text-white">{transferData.opswalletFeeInDollar}</span>
                 </div>
                 {transferData.transferMode === 'coupon' && (
                   <div className="flex justify-between">
