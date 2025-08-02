@@ -5,6 +5,8 @@ import {
   sendSignedTransaction,
   sendEthereumTransaction 
 } from '../ethereum/transaction';
+import { sendSolanaTransaction, getSolanaBalance } from '../solana/transaction';
+import { Connection } from '@solana/web3.js';
 
 // API 키들
 const INFURA_API_KEY = process.env.NEXT_PUBLIC_INFURA_API_KEY || 'your-infura-api-key';
@@ -16,6 +18,7 @@ const RPC_ENDPOINTS = {
   polygon: `https://polygon-mainnet.infura.io/v3/${INFURA_API_KEY}`,
   bsc: 'https://bsc-dataseed1.binance.org/',
   avalanche: 'https://api.avax.network/ext/bc/C/rpc',
+  solana: 'https://api.mainnet-beta.solana.com',
   goerli: `https://goerli.infura.io/v3/${INFURA_API_KEY}`,
   sepolia: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
 };
@@ -138,7 +141,7 @@ export async function sendBlockchainTransaction(
     }
 
     // 통화에 따라 적절한 네트워크 선택
-    let network: 'ethereum' | 'polygon' | 'bsc' | 'avalanche' | 'goerli' | 'sepolia';
+    let network: 'ethereum' | 'polygon' | 'bsc' | 'avalanche' | 'solana' | 'goerli' | 'sepolia';
     
     switch (currency.toUpperCase()) {
       case 'ETH':
@@ -157,6 +160,10 @@ export async function sendBlockchainTransaction(
       case 'AVALANCHE':
         network = 'avalanche';
         break;
+      case 'SOL':
+      case 'SOLANA':
+        // 솔라나는 별도 처리
+        return await sendSolanaTransaction(fromAddress, toAddress, amount, privateKey, new Connection(RPC_ENDPOINTS.solana));
       case 'ETH_GOERLI':
         network = 'goerli';
         break;
@@ -202,6 +209,12 @@ export async function getGasPrice(network: string): Promise<string> {
 // 잔액 조회
 export async function getBalance(address: string, network: string): Promise<string> {
   try {
+    // 솔라나는 별도 처리
+    if (network.toLowerCase() === 'solana' || network.toLowerCase() === 'sol') {
+      const connection = new Connection(RPC_ENDPOINTS.solana);
+      return await getSolanaBalance(address, connection);
+    }
+
     const rpcUrl = RPC_ENDPOINTS[network as keyof typeof RPC_ENDPOINTS];
     if (!rpcUrl) {
       throw new Error(`지원하지 않는 네트워크: ${network}`);

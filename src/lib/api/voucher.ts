@@ -266,3 +266,33 @@ export const createCouponTransfer = async (transferData: CouponTransferRequest):
     throw new Error(error instanceof Error ? error.message : '쿠폰 전송에 실패했습니다.');
   }
 };
+
+/**
+ * FeePay 공개키 조회 API
+ * @param currencyId - 통화 ID
+ * @returns FeePay 공개키
+ */
+export const getFeePayPublicKey = async (currencyId: string): Promise<{ key: string }> => {
+  try {
+    console.log('FeePay 공개키 조회 시작:', currencyId);
+    
+    const requestUrl = `${API_BASE_URL}/api/v1/transaction/feepay-key?currencyId=${currencyId}`;
+    
+    console.log('FeePay 공개키 조회 요청:', { url: requestUrl });
+    
+    const response = await axios.get(requestUrl);
+    console.log('FeePay 공개키 조회 응답:', response.data);
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('FeePay 공개키 조회 실패:', error);
+    
+    // 서버에서 오는 에러 메시지 처리
+    const errorMessage = error.response?.data?.message || 
+                        error.response?.data?.error || 
+                        error.message || 
+                        'FeePay 공개키 조회에 실패했습니다.';
+    
+    throw new Error(errorMessage);
+  }
+};

@@ -11,7 +11,7 @@ import { useWalletList, useEnabledAssets } from "../hooks/useWalletAtoms";
 import { useWalletBalance } from "../hooks/queries/useWalletBalance";
 import { Button, Input, Card } from "../components/ui";
 import { useQueryClient } from '@tanstack/react-query';
-import { regenerateAllWalletPrivateKeys } from "../lib/wallet-utils";
+import { regenerateAllWalletPrivateKeys, addSolanaToExistingWallets } from "../lib/wallet-utils";
 
 // 더 세련된 코인 SVG 아이콘들 (gradient, 입체감, 라인 등)
 const BtcIcon = ({ size = 54 }: { size?: number }) => (
@@ -53,6 +53,19 @@ const UsdtIcon = ({ size = 54 }: { size?: number }) => (
     <circle cx="27" cy="27" r="27" fill="#1B1C22"/>
     <circle cx="27" cy="27" r="22" fill="url(#usdtG)"/>
     <text x="27" y="36" textAnchor="middle" fontWeight="bold" fontSize={size * 0.38} fill="#fff" fontFamily="monospace" style={{filter:'drop-shadow(0 1px 2px #0008)'}}>$</text>
+  </svg>
+);
+const SolIcon = ({ size = 54 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="solG" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#FF6B6B"/>
+        <stop offset="100%" stopColor="#4ECDC4"/>
+      </linearGradient>
+    </defs>
+    <circle cx="27" cy="27" r="27" fill="#1B1C22"/>
+    <circle cx="27" cy="27" r="22" fill="url(#solG)"/>
+    <text x="27" y="36" textAnchor="middle" fontWeight="bold" fontSize={size * 0.45} fill="#fff" fontFamily="monospace" style={{filter:'drop-shadow(0 1px 2px #0008)'}}>◎</text>
   </svg>
 );
 
@@ -143,6 +156,10 @@ export default function Home() {
     selectedWallet?.addresses.AVAX || '', 
     'AVAX'
   );
+  const solBalance = useWalletBalance(
+    selectedWallet?.addresses.SOL || '', 
+    'SOL'
+  );
 
   // 잔액 데이터 캐시 무효화 함수
   const invalidateBalanceCache = () => {
@@ -187,14 +204,44 @@ export default function Home() {
       total += avaxValue;
     }
     
+    if (enabledAssets.includes('SOL') && solBalance.data) {
+      const solValue = parseFloat(solBalance.data.usdValue.replace('$', '').replace(',', ''));
+      total += solValue;
+    }
+    
     return total;
   };
 
   const totalUSD = calculateTotalUSD();
 
-  // HD Wallet 목록 로드
+  // 디버깅용 로그
+  console.log('메인 화면 상태:', {
+    enabledAssets,
+    selectedWallet: selectedWallet ? {
+      id: selectedWallet.id,
+      addresses: selectedWallet.addresses,
+      hasSOL: !!selectedWallet.addresses.SOL
+    } : null,
+    solBalance: solBalance.data
+  });
+
+  // HD Wallet 목록 로드 및 솔라나 마이그레이션
   useEffect(() => {
-    loadWallets();
+    const initializeApp = async () => {
+      // 기존 지갑들에 솔라나 주소 추가 (마이그레이션)
+      try {
+        const result = await addSolanaToExistingWallets();
+        console.log('솔라나 마이그레이션 결과:', result);
+      } catch (error) {
+        console.error('솔라나 마이그레이션 실패:', error);
+      }
+      
+      // 지갑 목록 로드
+      loadWallets();
+      loadEnabledAssets();
+    };
+    
+    initializeApp();
   }, []);
 
   // 활성화된 자산 로드
@@ -219,8 +266,9 @@ export default function Home() {
       console.log('MATIC 잔액 데이터:', maticBalance.data);
       console.log('BSC 잔액 데이터:', bscBalance.data);
       console.log('AVAX 잔액 데이터:', avaxBalance.data);
+      console.log('SOL 잔액 데이터:', solBalance.data);
     }
-  }, [selectedWallet, enabledAssets, btcBalance.data, ethBalance.data, usdtBalance.data, maticBalance.data, bscBalance.data, avaxBalance.data]);
+  }, [selectedWallet, enabledAssets, btcBalance.data, ethBalance.data, usdtBalance.data, maticBalance.data, bscBalance.data, avaxBalance.data, solBalance.data]);
 
   // assetsUpdated 이벤트 수신
   useEffect(() => {
@@ -329,6 +377,7 @@ export default function Home() {
     if (symbol === 'BTC') return <BtcIcon size={size} />;
     if (symbol === 'ETH') return <EthIcon size={size} />;
     if (symbol === 'USDT') return <UsdtIcon size={size} />;
+    if (symbol === 'SOL') return <SolIcon size={size} />;
     return <span style={{ width: size, height: size, display: 'inline-block' }} />;
   };
 
@@ -496,6 +545,26 @@ export default function Home() {
                     </span>
                     <span className="balance-card-sub-usd">
                       {usdtBalance.isLoading ? '로딩 중...' : usdtBalance.data?.usdValue || '$0.00'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {selectedWallet.addresses.SOL && enabledAssets.includes('SOL') && (
+                <div className="common-card" style={{ padding: '14px 24px', gap: 20 }}>
+                  <SolIcon size={60} />
+                  <div className="balance-card-inner">
+                    <span className="balance-card-name">SOL</span>
+                    <span className="balance-card-usd" style={{ color: solBalance.data?.changeColor || '#EB5757' }}>
+                      {solBalance.isLoading ? '로딩 중...' : solBalance.data?.price ? `${solBalance.data.price} ${solBalance.data.change}` : '$0.00 0.00%'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end ml-auto">
+                    <span className="balance-card-amount">
+                      {solBalance.isLoading ? '로딩 중...' : solBalance.data?.balance || '0.00000'}
+                    </span>
+                    <span className="balance-card-sub-usd">
+                      {solBalance.isLoading ? '로딩 중...' : solBalance.data?.usdValue || '$0.00'}
                     </span>
                   </div>
                 </div>

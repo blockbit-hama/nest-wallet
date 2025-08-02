@@ -110,6 +110,13 @@ export const useEnabledAssets = () => {
     }));
   };
 
+  // 초기 로딩 시 localStorage에서 활성화된 자산 복원
+  useEffect(() => {
+    if (typeof window !== 'undefined' && enabledAssets.length === 0) {
+      loadEnabledAssets();
+    }
+  }, [enabledAssets.length]); // enabledAssets.length만 의존성으로 사용
+
   return {
     enabledAssets,
     loadEnabledAssets,

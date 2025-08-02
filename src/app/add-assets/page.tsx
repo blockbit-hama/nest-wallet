@@ -33,7 +33,7 @@ interface CustomAsset {
 export default function AddAssetsPage() {
   const router = useRouter();
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customAsset, setCustomAsset] = useState<CustomAsset>({
     symbol: '',
@@ -45,13 +45,14 @@ export default function AddAssetsPage() {
   });
 
   // 새로운 atoms hooks 사용
-  const { updateEnabledAssets } = useEnabledAssets();
+  const { updateEnabledAssets, loadEnabledAssets } = useEnabledAssets();
   const { generateNewAssetKey } = useWallet();
 
   // 지원하는 암호화폐 목록 (기본 자산들)
   const supportedAssets = [
     { id: "btc", symbol: "BTC", name: "Bitcoin", icon: "₿" },
     { id: "eth", symbol: "ETH", name: "Ethereum", icon: "Ξ" },
+    { id: "sol", symbol: "SOL", name: "Solana", icon: "◎" },
     { id: "usdt", symbol: "USDT", name: "Tether", icon: "$" },
     { id: "matic", symbol: "MATIC", name: "Polygon", icon: "M" },
     { id: "bsc", symbol: "BSC", name: "BNB", icon: "B" },
@@ -60,73 +61,71 @@ export default function AddAssetsPage() {
 
   // 실시간 가격 정보 로드
   const loadAssetPrices = async () => {
-    try {
-      setIsLoading(true);
-      const symbols = supportedAssets.map(asset => asset.symbol);
-      const cryptoPrices = await getCryptoPrices(symbols);
+    const symbols = supportedAssets.map(asset => asset.symbol);
+    const cryptoPrices = await getCryptoPrices(symbols);
 
-      // 가격 정보를 assets 배열에 매핑
-      const assetsWithPrices = supportedAssets.map(asset => {
-        const priceData = cryptoPrices.find(price => price.symbol === asset.symbol);
-        
-        return {
-          id: asset.id,
-          symbol: asset.symbol,
-          name: asset.name,
-          icon: asset.icon,
-          price: priceData ? formatPrice(priceData.price) : '$0.00',
-          change: priceData ? formatChangePercentage(priceData.priceChangePercentage24h) : '0.00%',
-          changeColor: priceData ? getChangeColor(priceData.priceChangePercentage24h) : '#A0A0B0',
-          isEnabled: false
-        };
-      });
-
-      setAssets(assetsWithPrices);
-    } catch (error) {
-      console.error('가격 정보 로드 실패:', error);
-      // 에러 시 기본 정보로 설정
-      const defaultAssets = supportedAssets.map(asset => ({
+    // 가격 정보를 assets 배열에 매핑 (isEnabled는 기존 상태 유지)
+    const assetsWithPrices = supportedAssets.map(asset => {
+      const priceData = cryptoPrices.find(price => price.symbol === asset.symbol);
+      
+      return {
         id: asset.id,
         symbol: asset.symbol,
         name: asset.name,
         icon: asset.icon,
-        price: '$0.00',
-        change: '0.00%',
-        changeColor: '#A0A0B0',
-        isEnabled: false
-      }));
-      setAssets(defaultAssets);
-    } finally {
-      setIsLoading(false);
-    }
+        price: priceData ? formatPrice(priceData.price) : '$0.00',
+        change: priceData ? formatChangePercentage(priceData.priceChangePercentage24h) : '0.00%',
+        changeColor: priceData ? getChangeColor(priceData.priceChangePercentage24h) : '#A0A0B0',
+        isEnabled: false // 초기값, 나중에 저장된 상태로 덮어씌워짐
+      };
+    });
+
+    setAssets(assetsWithPrices);
   };
 
-  // 저장된 활성화된 자산 설정 로드
+  // 컴포넌트 마운트 시 가격 정보 로드 및 저장된 자산 설정 복원
   useEffect(() => {
-    const savedEnabledAssets = localStorage.getItem('enabledAssets');
-    if (savedEnabledAssets) {
+    let isMounted = true;
+    
+    const initializeAssets = async () => {
       try {
-        const enabledAssets = JSON.parse(savedEnabledAssets);
-        const enabledSymbols = enabledAssets.map((asset: any) => asset.symbol);
+        setIsLoading(true);
+        await loadAssetPrices();
         
-        setAssets(prevAssets => 
-          prevAssets.map(asset => ({
-            ...asset,
-            isEnabled: enabledSymbols.includes(asset.symbol)
-          }))
-        );
-        
-        console.log('저장된 활성화된 자산 로드:', enabledSymbols);
+        // 저장된 활성화된 자산 설정 로드
+        const savedEnabledAssets = localStorage.getItem('enabledAssets');
+        if (savedEnabledAssets && isMounted) {
+          try {
+            const enabledAssets = JSON.parse(savedEnabledAssets);
+            const enabledSymbols = enabledAssets.map((asset: any) => asset.symbol);
+            
+            setAssets(prevAssets => 
+              prevAssets.map(asset => ({
+                ...asset,
+                isEnabled: enabledSymbols.includes(asset.symbol)
+              }))
+            );
+            
+            console.log('저장된 활성화된 자산 로드:', enabledSymbols);
+          } catch (error) {
+            console.error('활성화된 자산 로드 실패:', error);
+          }
+        }
       } catch (error) {
-        console.error('활성화된 자산 로드 실패:', error);
+        console.error('자산 초기화 실패:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    }
-  }, []);
+    };
 
-  // 컴포넌트 마운트 시 가격 정보 로드
-  useEffect(() => {
-    loadAssetPrices();
-  }, []);
+    initializeAssets();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // 의존성 배열을 비워서 한 번만 실행
 
   // 토글 버튼 클릭 핸들러
   const handleToggle = (assetId: string) => {
@@ -236,16 +235,20 @@ export default function AddAssetsPage() {
           if (asset?.derivationPath) {
             // 사용자 정의 자산
             derivationPath = asset.derivationPath;
+          } else if (symbol === 'SOL') {
+            // 솔라나는 고정된 derivation path 사용
+            derivationPath = "m/44'/501'/0'/0/0";
           } else if (symbol === 'ETH') {
             // ETH 추가 주소
             const existingEthAddresses = enabledSymbols.filter(s => s.startsWith('ETH'));
             derivationPath = getNextEthAddressPath(existingEthAddresses);
           } else {
             // 다른 토큰들 (account로 구분)
-            const existingAssets = enabledSymbols.filter(s => s !== 'BTC' && s !== 'ETH' && !s.startsWith('ETH'));
+            const existingAssets = enabledSymbols.filter(s => s !== 'BTC' && s !== 'ETH' && s !== 'SOL' && !s.startsWith('ETH'));
             derivationPath = getNextAccountPath(existingAssets);
           }
           
+          console.log(`${symbol} 자산 생성 시도 - derivationPath:`, derivationPath);
           const newAssetKey = await generateNewAssetKey(symbol, derivationPath);
           
           if (newAssetKey) {
@@ -256,7 +259,7 @@ export default function AddAssetsPage() {
             });
             
             // 지갑 정보 업데이트 (로컬 스토리지에 저장)
-            const wallets = JSON.parse(localStorage.getItem('wallets') || '[]');
+            const wallets = JSON.parse(localStorage.getItem('hdWallets') || '[]');
             const currentWallet = wallets.find((w: any) => w.id === localStorage.getItem('selectedWalletId'));
             
             if (currentWallet) {
@@ -271,20 +274,36 @@ export default function AddAssetsPage() {
               const updatedWallets = wallets.map((w: any) => 
                 w.id === currentWallet.id ? currentWallet : w
               );
-              localStorage.setItem('wallets', JSON.stringify(updatedWallets));
+              localStorage.setItem('hdWallets', JSON.stringify(updatedWallets));
               
               console.log(`${symbol} 자산이 지갑에 추가되었습니다.`);
             }
           } else {
-            console.error(`${symbol} 자산 생성 실패`);
+            console.error(`${symbol} 자산 생성 실패 - generateNewAssetKey가 null 반환`);
           }
         } catch (error) {
           console.error(`${symbol} 자산 생성 중 오류:`, error);
         }
       }
       
-      // 활성화된 자산 업데이트
+      // 활성화된 자산 업데이트 (이 함수가 localStorage에 저장함)
       updateEnabledAssets(enabledSymbols);
+      
+      console.log('가상자산 설정 저장 완료:', {
+        enabledAssets,
+        enabledSymbols
+      });
+      
+      // 디버깅용: 저장 후 localStorage 확인
+      const debugEnabledAssets = localStorage.getItem('enabledAssets');
+      const debugWallets = localStorage.getItem('hdWallets');
+      console.log('저장 후 localStorage 상태:', {
+        enabledAssets: debugEnabledAssets,
+        wallets: debugWallets ? JSON.parse(debugWallets).map((w: any) => ({
+          id: w.id,
+          addresses: w.addresses
+        })) : null
+      });
       
       alert('가상자산 설정이 저장되었습니다!');
       router.push('/');

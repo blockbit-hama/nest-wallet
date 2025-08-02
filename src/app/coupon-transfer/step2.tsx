@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createNonce, createCouponTransfer } from "../../lib/api/voucher";
+import { createNonce, createCouponTransfer, getFeePayPublicKey } from "../../lib/api/voucher";
 import { useMasterAddress } from "../../hooks/wallet/useMasterAddress";
 import { useWallet } from "../../hooks/wallet/useWallet";
 import { sendBlockchainTransaction, sendDirectTransaction } from "../../lib/api/blockchain-transfer";
@@ -86,35 +86,69 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     // 3. 블록체인 트랜잭션 서명 생성 (2번 방식)
     setLoadingStep("블록체인 트랜잭션 서명 생성 중...");
     
-    // 통화에 따라 적절한 심볼 결정
+    // 통화에 따라 적절한 심볼 결정 및 트랜잭션 생성
     let transactionSymbol = 'ETH'; // 기본값
-    if (transferData.currency === 'BITCOIN') {
-      transactionSymbol = 'BTC';
-    } else if (transferData.currency === 'MATIC') {
-      transactionSymbol = 'MATIC';
-    } else if (transferData.currency === 'BSC') {
-      transactionSymbol = 'BSC';
-    } else if (transferData.currency === 'AVAX') {
-      transactionSymbol = 'AVAX';
+    let signedTransaction = '';
+    
+    if (transferData.currency === 'SOL' || transferData.currency === 'SOLANA') {
+      // 솔라나 트랜잭션 생성
+      transactionSymbol = 'SOL';
+      
+      // FeePay 공개키 가져오기
+      setLoadingStep("FeePay 공개키 요청 중...");
+      const feePayResponse = await getFeePayPublicKey('SOL');
+      const feePayerPublicKey = feePayResponse.key;
+      console.log('FeePay 공개키 가져오기 완료:', feePayerPublicKey);
+      
+      // 솔라나 트랜잭션 생성 및 서명
+      const { createSolanaTransaction, signSolanaTransaction } = await import('../../lib/solana/transaction');
+      const { Connection } = await import('@solana/web3.js');
+      
+      const connection = new Connection('https://api.mainnet-beta.solana.com');
+      const transaction = await createSolanaTransaction({
+        from: transferData.senderAddress,
+        to: transferData.recipientAddress,
+        amount: transferData.transferAmount || "0",
+        feePayer: feePayerPublicKey,
+      }, connection, feePayerPublicKey);
+      
+      const assetKey = getAssetPrivateKey(transactionSymbol);
+      if (!assetKey) {
+        throw new Error(`${transactionSymbol} 개인키를 찾을 수 없습니다.`);
+      }
+      
+      const signedTx = await signSolanaTransaction(transaction, assetKey.privateKey);
+      signedTransaction = signedTx.rawTransaction;
+      console.log('솔라나 트랜잭션 서명 생성 완료:', signedTransaction);
+      
+    } else {
+      // 이더리움 기반 트랜잭션 생성
+      if (transferData.currency === 'BITCOIN') {
+        transactionSymbol = 'BTC';
+      } else if (transferData.currency === 'MATIC') {
+        transactionSymbol = 'MATIC';
+      } else if (transferData.currency === 'BSC') {
+        transactionSymbol = 'BSC';
+      } else if (transferData.currency === 'AVAX') {
+        transactionSymbol = 'AVAX';
+      }
+      
+      const assetKey = getAssetPrivateKey(transactionSymbol);
+      if (!assetKey) {
+        throw new Error(`${transactionSymbol} 개인키를 찾을 수 없습니다.`);
+      }
+      
+      // 이더리움 기반 트랜잭션 데이터 생성 및 서명
+      const txData = {
+        to: transferData.recipientAddress,
+        value: ethers.utils.parseEther(transferData.transferAmount || "0"),
+        gasLimit: 21000,
+        gasPrice: ethers.utils.parseUnits("20", "gwei")
+      };
+      
+      signedTransaction = await signEthereumTransaction(txData, transactionSymbol);
+      console.log('이더리움 기반 트랜잭션 서명 생성 완료:', signedTransaction);
     }
-    
-    // 실제 트랜잭션 서명 생성
-    const assetKey = getAssetPrivateKey(transactionSymbol);
-    
-    if (!assetKey) {
-      throw new Error(`${transactionSymbol} 개인키를 찾을 수 없습니다.`);
-    }
-    
-    // 실제 트랜잭션 데이터 생성 및 서명
-    const txData = {
-      to: transferData.recipientAddress,
-      value: ethers.utils.parseEther(transferData.transferAmount || "0"),
-      gasLimit: 21000,
-      gasPrice: ethers.utils.parseUnits("20", "gwei")
-    };
-    
-    const signedTransaction = await signEthereumTransaction(txData, transactionSymbol);
-    console.log('블록체인 트랜잭션 서명 생성 완료:', signedTransaction);
 
     // 4. 트랜잭션 데이터 준비
     setLoadingStep("트랜잭션 준비 중...");

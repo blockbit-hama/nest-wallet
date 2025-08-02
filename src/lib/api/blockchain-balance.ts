@@ -194,6 +194,100 @@ export async function getAvalancheBalance(address: string): Promise<BlockchainBa
 }
 
 /**
+ * USDT (Tether ERC-20) 잔액 조회
+ */
+export async function getUSDTBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    // USDT ERC-20 컨트랙트 주소
+    const USDT_CONTRACT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+    
+    const response = await fetch(INFURA_ENDPOINTS.ethereum, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_call',
+        params: [{
+          to: USDT_CONTRACT_ADDRESS,
+          data: `0x70a08231000000000000000000000000${address.slice(2)}`
+        }, 'latest'],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`USDT 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`USDT API 오류: ${data.error.message}`);
+    }
+
+    const balanceHex = data.result;
+    const balanceUsdt = parseInt(balanceHex, 16) / Math.pow(10, 6); // USDT는 6 decimals
+
+    return {
+      address,
+      symbol: 'USDT',
+      balance: balanceUsdt.toFixed(6),
+      decimals: 6,
+      network: 'ethereum'
+    };
+  } catch (error) {
+    console.error('USDT 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * 솔라나 잔액 조회
+ */
+export async function getSolanaBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch('https://api.mainnet-beta.solana.com', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'getBalance',
+        params: [address],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`솔라나 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`솔라나 API 오류: ${data.error.message}`);
+    }
+
+    const balanceLamports = data.result.value;
+    const balanceSol = balanceLamports / Math.pow(10, 9); // lamports to SOL
+
+    return {
+      address,
+      symbol: 'SOL',
+      balance: balanceSol.toFixed(6),
+      decimals: 9,
+      network: 'solana'
+    };
+  } catch (error) {
+    console.error('솔라나 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
  * 비트코인 잔액 조회 (BlockCypher API 사용)
  */
 export async function getBitcoinBalance(address: string): Promise<BlockchainBalance | null> {
@@ -229,6 +323,10 @@ export async function getBlockchainBalance(address: string, symbol: string): Pro
       return await getEthereumBalance(address);
     case 'BTC':
       return await getBitcoinBalance(address);
+    case 'SOL':
+      return await getSolanaBalance(address);
+    case 'USDT':
+      return await getUSDTBalance(address);
     case 'MATIC':
       return await getPolygonBalance(address);
     case 'BSC':
