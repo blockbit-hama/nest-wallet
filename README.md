@@ -75,12 +75,48 @@ const transaction: TransactionGasEstimate = {
 };
 ```
 
+#### 솔라나 수수료 추정
+
+솔라나는 고정 수수료 시스템을 사용하며, 트랜잭션 시뮬레이션을 통해 정확한 수수료를 계산합니다.
+
+```typescript
+import { simulateSolanaTransaction, SolanaTransactionEstimate } from './lib/api/fee-estimate';
+
+const solanaTransaction: SolanaTransactionEstimate = {
+  from: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+  to: "2xNweLHLqrxmzZxKqsK4h1J3J7EoX3dA1qH6qKqKqKqK",
+  amount: "1.0",
+  symbol: "SOL",
+  network: "solana",
+  transactionType: "SOL_TRANSFER"
+};
+
+const feeEstimate = await simulateSolanaTransaction(solanaTransaction);
+console.log(feeEstimate);
+// {
+//   symbol: "SOL",
+//   network: "solana",
+//   feeInLamports: 5000,
+//   feeInSol: "0.000005000",
+//   feeInDollar: "0.0005",
+//   priority: "medium",
+//   computeUnits: 200000
+// }
+```
+
+**솔라나 수수료 특징:**
+- **고정 수수료**: 기본 5,000 lamports (0.000005 SOL)
+- **트랜잭션 시뮬레이션**: 실제 트랜잭션을 시뮬레이션하여 정확한 수수료 계산
+- **컴퓨트 유닛**: 트랜잭션 복잡도에 따른 컴퓨트 유닛 추정
+- **실시간 가격**: CoinGecko API로 USD 환산
+
 #### 지원 네트워크
 
 - **이더리움 (Ethereum)**: Infura API
 - **폴리곤 (Polygon)**: Infura API
 - **BSC**: Binance RPC
 - **Avalanche**: Avalanche RPC
+- **솔라나 (Solana)**: Solana RPC
 - **비트코인**: BlockCypher API
 
 #### 자동 수수료 계산

@@ -5,7 +5,7 @@ import { getCouponsByMasterAddress } from "../../lib/api/voucher";
 import { getExchangeRate, normalizeCurrencyId } from "../../lib/api/exchange-rate";
 import { cn } from '@/lib/utils/utils';
 import { useWalletList } from "../../hooks/useWalletAtoms";
-import { getFeeEstimate, estimateTransactionFee, TransactionGasEstimate } from "../../lib/api/fee-estimate";
+import { getFeeEstimate, estimateTransactionFee, TransactionGasEstimate, estimateSolanaFee, simulateSolanaTransaction, SolanaTransactionEstimate } from "../../lib/api/fee-estimate";
 
 interface CouponTransferStep1Props {
   onComplete: (data: any) => void;
@@ -42,6 +42,7 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
     { key: "MATIC", label: "MATIC (Polygon)", address: selectedWallet.addresses.MATIC },
     { key: "BSC", label: "BSC", address: selectedWallet.addresses.BSC },
     { key: "AVAX", label: "AVAX", address: selectedWallet.addresses.AVAX },
+    { key: "SOL", label: "SOL (Solana)", address: selectedWallet.addresses.SOL },
   ].filter(addr => addr.address) : [];
 
   // 선택된 주소가 변경될 때 통화 자동 설정
@@ -57,6 +58,8 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
         setSelectedCurrency("BSC");
       } else if (selectedFromAddress === 'AVAX') {
         setSelectedCurrency("AVAX");
+      } else if (selectedFromAddress === 'SOL') {
+        setSelectedCurrency("SOLANA");
       }
     }
   }, [selectedFromAddress]);
@@ -95,6 +98,7 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
     { value: "MATIC", label: "MATIC" },
     { value: "BSC", label: "BSC" },
     { value: "AVAX", label: "AVAX" },
+    { value: "SOLANA", label: "SOL" },
     { value: "TETHER", label: "USDT" },
   ];
 
@@ -208,6 +212,9 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
       } else if (selectedCurrency === 'AVAX') {
         symbol = 'AVAX';
         network = 'avalanche';
+      } else if (selectedCurrency === 'SOLANA') {
+        symbol = 'SOL';
+        network = 'solana';
       }
 
       console.log('수수료 조회 심볼:', symbol, '네트워크:', network);
@@ -219,22 +226,45 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
         if (selectedAddress) {
           console.log('트랜잭션별 수수료 추정 시작');
           
-          const transactionData: TransactionGasEstimate = {
-            from: selectedAddress.address,
-            to: recipientAddress.trim(),
-            value: transferAmount || '0', // 전송 금액이 있으면 사용, 없으면 0
-            data: '0x', // 기본 ETH 전송
-            symbol: symbol,
-            network: network
-          };
+          // 솔라나인 경우 별도 처리
+          if (network === 'solana') {
+            const solanaTransaction: SolanaTransactionEstimate = {
+              from: selectedAddress.address,
+              to: recipientAddress.trim(),
+              amount: transferAmount || '0',
+              symbol: symbol,
+              network: network,
+              transactionType: 'SOL_TRANSFER'
+            };
 
-          const feeEstimate = await estimateTransactionFee(transactionData);
-          
-          if (feeEstimate) {
-            setEstimatedFee(feeEstimate.estimatedFee);
-            setFeeInDollar(feeEstimate.feeInDollar);
-            console.log('트랜잭션별 수수료 추정 완료:', feeEstimate);
-            return;
+            // 솔라나 트랜잭션 시뮬레이션으로 정확한 수수료 추정
+            const solanaFeeEstimate = await simulateSolanaTransaction(solanaTransaction);
+            
+            if (solanaFeeEstimate) {
+              setEstimatedFee(solanaFeeEstimate.feeInSol);
+              setFeeInDollar(solanaFeeEstimate.feeInDollar);
+              console.log('솔라나 수수료 추정 완료:', solanaFeeEstimate);
+              return;
+            }
+          } else {
+            // EVM 기반 블록체인 처리
+            const transactionData: TransactionGasEstimate = {
+              from: selectedAddress.address,
+              to: recipientAddress.trim(),
+              value: transferAmount || '0', // 전송 금액이 있으면 사용, 없으면 0
+              data: '0x', // 기본 ETH 전송
+              symbol: symbol,
+              network: network
+            };
+
+            const feeEstimate = await estimateTransactionFee(transactionData);
+            
+            if (feeEstimate) {
+              setEstimatedFee(feeEstimate.estimatedFee);
+              setFeeInDollar(feeEstimate.feeInDollar);
+              console.log('트랜잭션별 수수료 추정 완료:', feeEstimate);
+              return;
+            }
           }
         }
       }

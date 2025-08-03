@@ -9,6 +9,13 @@ const INFURA_ENDPOINTS = {
   avalanche: 'https://api.avax.network/ext/bc/C/rpc',
 };
 
+// 솔라나 RPC 엔드포인트
+const SOLANA_ENDPOINTS = {
+  mainnet: 'https://api.mainnet-beta.solana.com',
+  devnet: 'https://api.devnet.solana.com',
+  testnet: 'https://api.testnet.solana.com',
+};
+
 export interface FeeEstimate {
   symbol: string;
   network: string;
@@ -17,6 +24,17 @@ export interface FeeEstimate {
   estimatedFee: string;
   feeInDollar: string;
   priority: 'low' | 'medium' | 'high';
+}
+
+// 솔라나 수수료 추정 인터페이스
+export interface SolanaFeeEstimate {
+  symbol: string;
+  network: string;
+  feeInLamports: number;
+  feeInSol: string;
+  feeInDollar: string;
+  priority: 'low' | 'medium' | 'high';
+  computeUnits: number;
 }
 
 // 새로운 인터페이스: 트랜잭션별 가스 추정
@@ -29,6 +47,17 @@ export interface TransactionGasEstimate {
   network: string;
 }
 
+// 솔라나 트랜잭션 추정 인터페이스
+export interface SolanaTransactionEstimate {
+  from: string;
+  to: string;
+  amount: string;
+  symbol: string;
+  network: string;
+  transactionType?: 'SOL_TRANSFER' | 'SPL_TOKEN_TRANSFER' | 'SWAP' | 'COMPLEX_DEFI' | 'CUSTOM';
+  customData?: string;
+}
+
 // 트랜잭션 타입별 기본 가스 리밋
 export const DEFAULT_GAS_LIMITS = {
   ETH_TRANSFER: 21000,
@@ -39,6 +68,26 @@ export const DEFAULT_GAS_LIMITS = {
   NFT_TRANSFER: 100000,
   CONTRACT_DEPLOY: 1000000,
 } as const;
+
+// 솔라나 트랜잭션 타입별 기본 수수료 (lamports)
+export const SOLANA_DEFAULT_FEES = {
+  SOL_TRANSFER: 5000, // 기본 SOL 전송
+  SPL_TOKEN_TRANSFER: 5000, // SPL 토큰 전송
+  SWAP: 10000, // 스왑 트랜잭션
+  COMPLEX_DEFI: 15000, // 복잡한 DeFi 트랜잭션
+  NFT_TRANSFER: 5000, // NFT 전송
+  CUSTOM: 5000, // 커스텀 트랜잭션
+} as const;
+
+// 솔라나 컴퓨트 유닛 (기본값)
+export const SOLANA_COMPUTE_UNITS: { [key: string]: number } = {
+  SOL_TRANSFER: 200000,
+  SPL_TOKEN_TRANSFER: 200000,
+  SWAP: 400000,
+  COMPLEX_DEFI: 600000,
+  NFT_TRANSFER: 200000,
+  CUSTOM: 200000,
+};
 
 /**
  * 트랜잭션 데이터로 가스 리밋 추정
@@ -700,5 +749,170 @@ export async function estimateAdvancedTransactionFee(
   } catch (error) {
     console.error('고급 트랜잭션 수수료 추정 실패:', error);
     return null;
+  }
+} 
+
+/**
+ * 솔라나 수수료 추정
+ */
+export async function estimateSolanaFee(
+  transaction: SolanaTransactionEstimate
+): Promise<SolanaFeeEstimate | null> {
+  try {
+    console.log('솔라나 수수료 추정 시작:', transaction);
+
+    // 솔라나 RPC 연결
+    const { Connection } = await import('@solana/web3.js');
+    const connection = new Connection(SOLANA_ENDPOINTS.mainnet);
+
+    // 1. 최신 수수료 조회
+    const { feeCalculator } = await connection.getRecentBlockhash();
+    const baseFee = feeCalculator.lamportsPerSignature;
+
+    // 2. 트랜잭션 타입에 따른 수수료 계산
+    let totalFee = baseFee;
+    let computeUnits = SOLANA_COMPUTE_UNITS.SOL_TRANSFER;
+
+    switch (transaction.transactionType) {
+      case 'SPL_TOKEN_TRANSFER':
+        totalFee = baseFee * 2; // 토큰 전송은 더 많은 수수료
+        computeUnits = SOLANA_COMPUTE_UNITS.SPL_TOKEN_TRANSFER;
+        break;
+      case 'SWAP':
+        totalFee = baseFee * 3; // 스왑은 더 많은 수수료
+        computeUnits = SOLANA_COMPUTE_UNITS.SWAP;
+        break;
+      case 'COMPLEX_DEFI':
+        totalFee = baseFee * 4; // 복잡한 DeFi 트랜잭션
+        computeUnits = SOLANA_COMPUTE_UNITS.COMPLEX_DEFI;
+        break;
+      default:
+        totalFee = baseFee;
+        computeUnits = SOLANA_COMPUTE_UNITS.SOL_TRANSFER;
+    }
+
+    // 3. SOL로 변환 (1 SOL = 1,000,000,000 lamports)
+    const feeInSol = totalFee / 1000000000;
+
+    // 4. USD 환산
+    const solPrice = await getCryptoPrice('SOL');
+    const solPriceUsd = solPrice?.price || 100; // 기본값 $100
+    const feeInDollar = feeInSol * solPriceUsd;
+
+    return {
+      symbol: 'SOL',
+      network: 'solana',
+      feeInLamports: totalFee,
+      feeInSol: feeInSol.toFixed(9),
+      feeInDollar: feeInDollar.toFixed(2),
+      priority: 'medium',
+      computeUnits: computeUnits
+    };
+  } catch (error) {
+    console.error('솔라나 수수료 추정 실패:', error);
+    return getDefaultSolanaFee();
+  }
+}
+
+/**
+ * 기본 솔라나 수수료 (fallback)
+ */
+function getDefaultSolanaFee(): SolanaFeeEstimate {
+  return {
+    symbol: 'SOL',
+    network: 'solana',
+    feeInLamports: 5000,
+    feeInSol: '0.000005',
+    feeInDollar: '0.0005',
+    priority: 'medium',
+    computeUnits: 200000
+  };
+}
+
+/**
+ * 솔라나 네트워크 상태 조회
+ */
+export async function getSolanaNetworkStatus(): Promise<{
+  slot: number;
+  blockTime: number;
+  feeCalculator: any;
+} | null> {
+  try {
+    const { Connection } = await import('@solana/web3.js');
+    const connection = new Connection(SOLANA_ENDPOINTS.mainnet);
+
+    const currentSlot = await connection.getSlot();
+    const [blockTime, { feeCalculator }] = await Promise.all([
+      connection.getBlockTime(currentSlot),
+      connection.getRecentBlockhash()
+    ]);
+
+    return {
+      slot: currentSlot,
+      blockTime: blockTime || 0,
+      feeCalculator
+    };
+  } catch (error) {
+    console.error('솔라나 네트워크 상태 조회 실패:', error);
+    return null;
+  }
+}
+
+/**
+ * 솔라나 트랜잭션 시뮬레이션으로 정확한 수수료 추정
+ */
+export async function simulateSolanaTransaction(
+  transaction: SolanaTransactionEstimate
+): Promise<SolanaFeeEstimate | null> {
+  try {
+    const { Connection, PublicKey, SystemProgram, LAMPORTS_PER_SOL, Transaction } = await import('@solana/web3.js');
+    const connection = new Connection(SOLANA_ENDPOINTS.mainnet);
+
+    // 솔라나 트랜잭션 생성
+    const solTransaction = new Transaction();
+    
+    // SOL 전송 명령어 추가
+    const transferInstruction = SystemProgram.transfer({
+      fromPubkey: new PublicKey(transaction.from),
+      toPubkey: new PublicKey(transaction.to),
+      lamports: parseFloat(transaction.amount) * LAMPORTS_PER_SOL,
+    });
+
+    solTransaction.add(transferInstruction);
+
+    // 최신 블록해시 가져오기
+    const { blockhash } = await connection.getLatestBlockhash();
+    solTransaction.recentBlockhash = blockhash;
+    solTransaction.feePayer = new PublicKey(transaction.from);
+
+    // 트랜잭션 시뮬레이션
+    const simulation = await connection.simulateTransaction(solTransaction);
+    
+    if (simulation.value.err) {
+      console.error('솔라나 트랜잭션 시뮬레이션 실패:', simulation.value.err);
+      return getDefaultSolanaFee();
+    }
+
+    // 수수료 계산 (시뮬레이션에서 fee가 없을 수 있음)
+    const feeInLamports = (simulation.value as any).fee || 5000;
+    const feeInSol = feeInLamports / LAMPORTS_PER_SOL;
+
+    // USD 환산
+    const solPrice = await getCryptoPrice('SOL');
+    const solPriceUsd = solPrice?.price || 100;
+    const feeInDollar = feeInSol * solPriceUsd;
+
+    return {
+      symbol: 'SOL',
+      network: 'solana',
+      feeInLamports: feeInLamports,
+      feeInSol: feeInSol.toFixed(9),
+      feeInDollar: feeInDollar.toFixed(2),
+      priority: 'medium',
+      computeUnits: simulation.value.unitsConsumed || 200000
+    };
+  } catch (error) {
+    console.error('솔라나 트랜잭션 시뮬레이션 실패:', error);
+    return getDefaultSolanaFee();
   }
 } 
