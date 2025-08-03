@@ -5,7 +5,7 @@ import { getCouponsByMasterAddress } from "../../lib/api/voucher";
 import { getExchangeRate, normalizeCurrencyId } from "../../lib/api/exchange-rate";
 import { cn } from '@/lib/utils/utils';
 import { useWalletList } from "../../hooks/useWalletAtoms";
-import { getFeeEstimate } from "../../lib/api/fee-estimate";
+import { getFeeEstimate, estimateTransactionFee, TransactionGasEstimate } from "../../lib/api/fee-estimate";
 
 interface CouponTransferStep1Props {
   onComplete: (data: any) => void;
@@ -68,6 +68,18 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
       fetchFeeEstimate(); // 수수료 자동 조회
     }
   }, [selectedCurrency]);
+
+  // 받는 주소나 전송 금액이 변경될 때 수수료 재계산
+  useEffect(() => {
+    if (selectedCurrency && recipientAddress.trim() && selectedFromAddress) {
+      // 약간의 지연을 두어 연속 입력을 방지
+      const timeoutId = setTimeout(() => {
+        fetchFeeEstimate();
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [recipientAddress, transferAmount, selectedFromAddress]);
 
   // masterAddress가 변경될 때마다 쿠폰 목록 조회
   useEffect(() => {
@@ -180,25 +192,61 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
     try {
       console.log('수수료 자동 조회 시작, 통화:', selectedCurrency);
       
-      // 통화에 따라 적절한 심볼 결정
-      let symbol = 'ETH'; // 기본값
+      // 통화에 따라 적절한 심볼과 네트워크 결정
+      let symbol = 'ETH';
+      let network = 'ethereum';
+      
       if (selectedCurrency === 'BITCOIN') {
         symbol = 'BTC';
+        network = 'bitcoin';
       } else if (selectedCurrency === 'MATIC') {
         symbol = 'MATIC';
+        network = 'polygon';
       } else if (selectedCurrency === 'BSC') {
         symbol = 'BSC';
+        network = 'bsc';
       } else if (selectedCurrency === 'AVAX') {
         symbol = 'AVAX';
+        network = 'avalanche';
       }
 
-      console.log('수수료 조회 심볼:', symbol);
+      console.log('수수료 조회 심볼:', symbol, '네트워크:', network);
+
+      // 선택된 주소와 받는 주소가 있으면 트랜잭션별 추정
+      if (selectedFromAddress && recipientAddress.trim()) {
+        const selectedAddress = availableAddresses.find(addr => addr.key === selectedFromAddress);
+        
+        if (selectedAddress) {
+          console.log('트랜잭션별 수수료 추정 시작');
+          
+          const transactionData: TransactionGasEstimate = {
+            from: selectedAddress.address,
+            to: recipientAddress.trim(),
+            value: transferAmount || '0', // 전송 금액이 있으면 사용, 없으면 0
+            data: '0x', // 기본 ETH 전송
+            symbol: symbol,
+            network: network
+          };
+
+          const feeEstimate = await estimateTransactionFee(transactionData);
+          
+          if (feeEstimate) {
+            setEstimatedFee(feeEstimate.estimatedFee);
+            setFeeInDollar(feeEstimate.feeInDollar);
+            console.log('트랜잭션별 수수료 추정 완료:', feeEstimate);
+            return;
+          }
+        }
+      }
+
+      // 트랜잭션별 추정이 실패하거나 주소가 없으면 기본 추정 사용
+      console.log('기본 수수료 추정 사용');
       const feeEstimate = await getFeeEstimate(symbol);
       
       if (feeEstimate) {
         setEstimatedFee(feeEstimate.estimatedFee);
         setFeeInDollar(feeEstimate.feeInDollar);
-        console.log('수수료 자동 조회 완료:', feeEstimate);
+        console.log('기본 수수료 추정 완료:', feeEstimate);
       } else {
         console.warn('수수료 조회 실패, 기본값 사용');
         // 기본값 설정
@@ -495,7 +543,12 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
         <h3 className="text-white font-semibold">수수료 설정</h3>
         
         <div className="space-y-3">
-          <label className="block text-gray-400 text-sm font-semibold">예상 수수료</label>
+          <label className="block text-gray-400 text-sm font-semibold">
+            예상 수수료
+            <span className="text-xs text-gray-500 ml-2">
+              (트랜잭션별 정확한 추정)
+            </span>
+          </label>
           <div className="flex space-x-2">
             <input
               type="number"
@@ -512,6 +565,9 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
               자동
             </button>
           </div>
+          <p className="text-xs text-gray-500">
+            주소와 금액을 입력하면 실시간으로 정확한 수수료를 계산합니다
+          </p>
           {errors.estimatedFee && (
             <p className="text-red-400 text-sm">{errors.estimatedFee}</p>
           )}
