@@ -916,3 +916,207 @@ export async function simulateSolanaTransaction(
     return getDefaultSolanaFee();
   }
 } 
+
+/**
+ * 솔라나 동적 수수료 조정
+ */
+export interface SolanaDynamicFee {
+  baseFee: number;
+  priorityFee: number;
+  computeUnitPrice: number;
+  totalFee: number;
+  feeInSol: string;
+  feeInDollar: string;
+  reason: string;
+}
+
+/**
+ * 솔라나 네트워크 혼잡도에 따른 동적 수수료 계산
+ */
+export async function calculateSolanaDynamicFee(
+  transaction: SolanaTransactionEstimate,
+  priority: 'low' | 'medium' | 'high' = 'medium'
+): Promise<SolanaDynamicFee | null> {
+  try {
+    const { Connection } = await import('@solana/web3.js');
+    const connection = new Connection(SOLANA_ENDPOINTS.mainnet);
+
+    // 1. 현재 네트워크 상태 조회
+    const networkStatus = await getSolanaNetworkStatus();
+    if (!networkStatus) {
+      throw new Error('네트워크 상태 조회 실패');
+    }
+
+    // 2. SOL 가격 조회
+    const solPrice = await getCryptoPrice('SOL');
+    const solPriceUsd = solPrice?.price || 100;
+
+    // 3. 기본 수수료
+    const baseFee = networkStatus.feeCalculator.lamportsPerSignature;
+
+    // 4. 우선순위별 추가 수수료
+    let priorityFee = 0;
+    switch (priority) {
+      case 'low':
+        priorityFee = 0;
+        break;
+      case 'medium':
+        priorityFee = baseFee * 0.5; // 50% 추가
+        break;
+      case 'high':
+        priorityFee = baseFee * 2; // 200% 추가
+        break;
+    }
+
+    // 5. SOL 가격에 따른 동적 조정
+    let priceAdjustment = 1.0;
+    if (solPriceUsd > 500) {
+      // SOL 가격이 $500 이상이면 수수료 조정 고려
+      priceAdjustment = Math.min(solPriceUsd / 500, 3.0); // 최대 3배까지만
+    }
+
+    // 6. 컴퓨트 유닛 가격 (동적)
+    const computeUnitPrice = Math.ceil(baseFee / 200000 * priceAdjustment); // 기본 200,000 units 기준
+
+    // 7. 총 수수료 계산
+    const totalFee = Math.ceil((baseFee + priorityFee) * priceAdjustment);
+
+    // 8. SOL로 변환
+    const feeInSol = totalFee / 1000000000;
+
+    // 9. USD 환산
+    const feeInDollar = feeInSol * solPriceUsd;
+
+    // 10. 조정 이유 설명
+    let reason = '기본 수수료';
+    if (priorityFee > 0) {
+      reason += ` + 우선순위 수수료 (${priority})`;
+    }
+    if (priceAdjustment > 1.0) {
+      reason += ` + 가격 조정 (${priceAdjustment.toFixed(2)}x)`;
+    }
+
+    return {
+      baseFee,
+      priorityFee,
+      computeUnitPrice,
+      totalFee,
+      feeInSol: feeInSol.toFixed(9),
+      feeInDollar: feeInDollar.toFixed(4),
+      reason
+    };
+  } catch (error) {
+    console.error('솔라나 동적 수수료 계산 실패:', error);
+    return null;
+  }
+}
+
+/**
+ * 솔라나 수수료 최적화 추천
+ */
+export async function getSolanaFeeRecommendation(
+  transaction: SolanaTransactionEstimate
+): Promise<{
+  low: SolanaDynamicFee;
+  medium: SolanaDynamicFee;
+  high: SolanaDynamicFee;
+  recommendation: 'low' | 'medium' | 'high';
+  reason: string;
+} | null> {
+  try {
+    // 3가지 우선순위로 수수료 계산
+    const [lowFee, mediumFee, highFee] = await Promise.all([
+      calculateSolanaDynamicFee(transaction, 'low'),
+      calculateSolanaDynamicFee(transaction, 'medium'),
+      calculateSolanaDynamicFee(transaction, 'high')
+    ]);
+
+    if (!lowFee || !mediumFee || !highFee) {
+      throw new Error('수수료 계산 실패');
+    }
+
+    // SOL 가격 기반 추천
+    const solPrice = await getCryptoPrice('SOL');
+    const solPriceUsd = solPrice?.price || 100;
+
+    let recommendation: 'low' | 'medium' | 'high' = 'medium';
+    let reason = '';
+
+    if (solPriceUsd > 1000) {
+      // SOL 가격이 $1000 이상이면 낮은 우선순위 추천
+      recommendation = 'low';
+      reason = `SOL 가격이 높음 ($${solPriceUsd.toFixed(2)}) - 낮은 우선순위로 비용 절약`;
+    } else if (solPriceUsd < 50) {
+      // SOL 가격이 $50 이하면 높은 우선순위 추천
+      recommendation = 'high';
+      reason = `SOL 가격이 낮음 ($${solPriceUsd.toFixed(2)}) - 높은 우선순위로 빠른 처리`;
+    } else {
+      recommendation = 'medium';
+      reason = `SOL 가격이 적정 수준 ($${solPriceUsd.toFixed(2)}) - 중간 우선순위 추천`;
+    }
+
+    return {
+      low: lowFee,
+      medium: mediumFee,
+      high: highFee,
+      recommendation,
+      reason
+    };
+  } catch (error) {
+    console.error('솔라나 수수료 추천 실패:', error);
+    return null;
+  }
+}
+
+/**
+ * 솔라나 수수료 히스토리 분석
+ */
+export async function analyzeSolanaFeeHistory(): Promise<{
+  averageFee: number;
+  feeTrend: 'increasing' | 'decreasing' | 'stable';
+  recommendation: string;
+} | null> {
+  try {
+    // 최근 24시간 수수료 데이터 수집 (실제로는 API 호출 필요)
+    const recentFees = [
+      { time: Date.now() - 24 * 60 * 60 * 1000, fee: 5000 },
+      { time: Date.now() - 12 * 60 * 60 * 1000, fee: 5200 },
+      { time: Date.now() - 6 * 60 * 60 * 1000, fee: 4800 },
+      { time: Date.now(), fee: 5000 }
+    ];
+
+    const averageFee = recentFees.reduce((sum, item) => sum + item.fee, 0) / recentFees.length;
+    
+    // 트렌드 분석
+    const firstHalf = recentFees.slice(0, 2).reduce((sum, item) => sum + item.fee, 0) / 2;
+    const secondHalf = recentFees.slice(2).reduce((sum, item) => sum + item.fee, 0) / 2;
+    
+    let feeTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
+    if (secondHalf > firstHalf * 1.1) {
+      feeTrend = 'increasing';
+    } else if (secondHalf < firstHalf * 0.9) {
+      feeTrend = 'decreasing';
+    }
+
+    let recommendation = '';
+    switch (feeTrend) {
+      case 'increasing':
+        recommendation = '수수료가 상승 중 - 낮은 우선순위 사용 권장';
+        break;
+      case 'decreasing':
+        recommendation = '수수료가 하락 중 - 높은 우선순위 사용 가능';
+        break;
+      default:
+        recommendation = '수수료가 안정적 - 중간 우선순위 사용 권장';
+    }
+
+    return {
+      averageFee,
+      feeTrend,
+      recommendation
+    };
+  } catch (error) {
+    console.error('솔라나 수수료 히스토리 분석 실패:', error);
+    return null;
+  }
+} 

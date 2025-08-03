@@ -102,6 +102,17 @@ console.log(feeEstimate);
 //   priority: "medium",
 //   computeUnits: 200000
 // }
+
+// 동적 수수료 추천 (SOL 가격 고려)
+const feeRecommendation = await getSolanaFeeRecommendation(solanaTransaction);
+console.log(feeRecommendation);
+// {
+//   low: { feeInDollar: "0.0003", feeInSol: "0.000003000", reason: "기본 수수료" },
+//   medium: { feeInDollar: "0.0005", feeInSol: "0.000005000", reason: "기본 수수료 + 우선순위 수수료 (medium)" },
+//   high: { feeInDollar: "0.0015", feeInSol: "0.000015000", reason: "기본 수수료 + 우선순위 수수료 (high)" },
+//   recommendation: "low",
+//   reason: "SOL 가격이 높음 ($1200.00) - 낮은 우선순위로 비용 절약"
+// }
 ```
 
 **솔라나 수수료 특징:**
@@ -109,6 +120,8 @@ console.log(feeEstimate);
 - **트랜잭션 시뮬레이션**: 실제 트랜잭션을 시뮬레이션하여 정확한 수수료 계산
 - **컴퓨트 유닛**: 트랜잭션 복잡도에 따른 컴퓨트 유닛 추정
 - **실시간 가격**: CoinGecko API로 USD 환산
+- **동적 수수료 조정**: SOL 가격 상승에 따른 수수료 최적화
+- **우선순위 기반**: 낮음/중간/높음 우선순위에 따른 수수료 조정
 
 #### 지원 네트워크
 

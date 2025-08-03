@@ -5,7 +5,7 @@ import { getCouponsByMasterAddress } from "../../lib/api/voucher";
 import { getExchangeRate, normalizeCurrencyId } from "../../lib/api/exchange-rate";
 import { cn } from '@/lib/utils/utils';
 import { useWalletList } from "../../hooks/useWalletAtoms";
-import { getFeeEstimate, estimateTransactionFee, TransactionGasEstimate, estimateSolanaFee, simulateSolanaTransaction, SolanaTransactionEstimate } from "../../lib/api/fee-estimate";
+import { getFeeEstimate, estimateTransactionFee, TransactionGasEstimate, estimateSolanaFee, simulateSolanaTransaction, SolanaTransactionEstimate, calculateSolanaDynamicFee, getSolanaFeeRecommendation } from "../../lib/api/fee-estimate";
 
 interface CouponTransferStep1Props {
   onComplete: (data: any) => void;
@@ -29,6 +29,7 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [transferMode, setTransferMode] = useState<'coupon' | 'direct'>('coupon');
   const [transferAmountInDollar, setTransferAmountInDollar] = useState<string>("");
+  const [solanaFeeInfo, setSolanaFeeInfo] = useState<any>(null);
 
   // 새로운 atoms hooks 사용
   const { selectedWallet } = useWalletList();
@@ -237,13 +238,41 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
               transactionType: 'SOL_TRANSFER'
             };
 
-            // 솔라나 트랜잭션 시뮬레이션으로 정확한 수수료 추정
+            // 솔라나 동적 수수료 추정 (SOL 가격 고려)
+            const solanaFeeRecommendation = await getSolanaFeeRecommendation(solanaTransaction);
+            
+            if (solanaFeeRecommendation) {
+              // 추천된 우선순위 사용
+              const recommendedFee = solanaFeeRecommendation[solanaFeeRecommendation.recommendation];
+              
+              setEstimatedFee(recommendedFee.feeInSol);
+              setFeeInDollar(recommendedFee.feeInDollar);
+              
+              console.log('솔라나 동적 수수료 추정 완료:', {
+                recommendation: solanaFeeRecommendation.recommendation,
+                reason: solanaFeeRecommendation.reason,
+                fee: recommendedFee
+              });
+              
+              // 수수료 추천 정보를 상태에 저장 (UI 표시용)
+              setSolanaFeeInfo({
+                low: solanaFeeRecommendation.low,
+                medium: solanaFeeRecommendation.medium,
+                high: solanaFeeRecommendation.high,
+                recommendation: solanaFeeRecommendation.recommendation,
+                reason: solanaFeeRecommendation.reason
+              });
+              
+              return;
+            }
+            
+            // 동적 수수료 실패 시 기본 시뮬레이션 사용
             const solanaFeeEstimate = await simulateSolanaTransaction(solanaTransaction);
             
             if (solanaFeeEstimate) {
               setEstimatedFee(solanaFeeEstimate.feeInSol);
               setFeeInDollar(solanaFeeEstimate.feeInDollar);
-              console.log('솔라나 수수료 추정 완료:', solanaFeeEstimate);
+              console.log('솔라나 기본 수수료 추정 완료:', solanaFeeEstimate);
               return;
             }
           } else {
@@ -620,6 +649,33 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
             <p className="text-red-400 text-sm">{errors.feeInDollar}</p>
           )}
         </div>
+
+        {/* 솔라나 동적 수수료 정보 (솔라나 선택 시에만 표시) */}
+        {selectedCurrency === 'SOLANA' && solanaFeeInfo && (
+          <div className="space-y-3 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+            <h4 className="text-white font-semibold text-sm">솔라나 수수료 최적화</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <div className="text-xs text-gray-400">낮은 우선순위</div>
+                <div className="text-sm text-white font-semibold">${solanaFeeInfo.low.feeInDollar}</div>
+                <div className="text-xs text-gray-500">{solanaFeeInfo.low.feeInSol} SOL</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400">중간 우선순위</div>
+                <div className="text-sm text-white font-semibold">${solanaFeeInfo.medium.feeInDollar}</div>
+                <div className="text-xs text-gray-500">{solanaFeeInfo.medium.feeInSol} SOL</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400">높은 우선순위</div>
+                <div className="text-sm text-white font-semibold">${solanaFeeInfo.high.feeInDollar}</div>
+                <div className="text-xs text-gray-500">{solanaFeeInfo.high.feeInSol} SOL</div>
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 mt-2">
+              <strong>추천:</strong> {solanaFeeInfo.reason}
+            </div>
+          </div>
+        )}
 
         {/* OpsWallet 수수료는 쿠폰 전송 모드일 때만 표시 */}
         {transferMode === 'coupon' && (
