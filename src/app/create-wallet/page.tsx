@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createHDWallet, saveWalletToStorage } from "../../lib/wallet-utils";
 import { Button, Input } from "../../components/ui";
-import { useWalletList } from "../../hooks/useWalletAtoms";
+import { useWalletList, useEnabledAssets } from "../../hooks/useWalletAtoms";
 
 export default function CreateWalletPage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function CreateWalletPage() {
 
   // 새로운 atoms hooks 사용
   const { refreshWalletList } = useWalletList();
+  const { updateEnabledAssets } = useEnabledAssets();
 
   // 지갑 생성
   const handleCreateWallet = async () => {
@@ -54,6 +55,10 @@ export default function CreateWalletPage() {
     try {
       // 지갑을 로컬 스토리지에 저장
       saveWalletToStorage(walletInfo);
+      
+      // 기본 자산 활성화 (BTC, ETH)
+      updateEnabledAssets(['BTC', 'ETH']);
+      console.log('새 지갑 생성 시 기본 자산 활성화: BTC, ETH');
       
       // atoms 업데이트
       refreshWalletList();

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateMnemonic, recoverWalletFromMnemonic, saveWalletToStorage } from "../../lib/wallet-utils";
 import { Button, Input } from "../../components/ui";
-import { useWalletList } from "../../hooks/useWalletAtoms";
+import { useWalletList, useEnabledAssets } from "../../hooks/useWalletAtoms";
 
 export default function RecoverWalletPage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function RecoverWalletPage() {
 
   // 새로운 atoms hooks 사용
   const { refreshWalletList } = useWalletList();
+  const { updateEnabledAssets } = useEnabledAssets();
 
   // 니모닉 입력 처리
   const handleMnemonicInput = (value: string) => {
@@ -66,6 +67,10 @@ export default function RecoverWalletPage() {
       
       // 지갑을 로컬 스토리지에 저장
       saveWalletToStorage(wallet);
+      
+      // 기본 자산 활성화 (BTC, ETH)
+      updateEnabledAssets(['BTC', 'ETH']);
+      console.log('지갑 복구 시 기본 자산 활성화: BTC, ETH');
       
       // atoms 업데이트
       refreshWalletList();
