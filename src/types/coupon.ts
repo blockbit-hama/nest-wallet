@@ -106,7 +106,7 @@ export interface SponsorTransactionRequest {
 }
 
 export interface SponsorTransactionResponse {
-  uuid: string; // 쿠폰서버에 보낸 행위 대한 대표 ID (transactionId)
+  transactionId: string; // 쿠폰서버에 보낸 행위 대한 대표 ID (UUID 타입) , 블록체인 트랜잭션 txid 가 아님
   status: string; // 현재 상태 (INIT, PENDING, CONFIRMED, ERROR, RETRY)
 }
 

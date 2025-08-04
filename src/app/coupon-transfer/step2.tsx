@@ -175,7 +175,7 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     const response = await createCouponTransfer(couponTransferData);
     console.log('쿠폰 전송 성공:', response);
 
-    if (!response.uuid) {
+    if (!response.transactionId) {
       throw new Error('쿠폰 전송에 실패했습니다.');
     }
   };

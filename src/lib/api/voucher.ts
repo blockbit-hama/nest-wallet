@@ -70,7 +70,7 @@ export interface CouponTransferRequest {
 }
 
 export interface CouponTransferResponse {
-  uuid: string;
+  transactionId: string;
   status: string;
 }
 
