@@ -230,8 +230,8 @@ export async function estimateTransactionFee(
       network: transaction.network,
       gasPrice: (gasPriceWei / Math.pow(10, 9)).toFixed(2), // Gwei
       gasLimit: gasLimit.toString(),
-      estimatedFee: estimatedFeeEth.toFixed(6),
-      feeInDollar: feeInDollar.toFixed(2),
+      estimatedFee: estimatedFeeEth.toString(),
+      feeInDollar: feeInDollar.toString(),
       priority: 'medium'
     };
   } catch (error) {

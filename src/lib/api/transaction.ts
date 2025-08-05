@@ -9,7 +9,7 @@ export interface Transaction {
   timestamp: Date;
   status: 'pending' | 'completed' | 'failed';
   txHash?: string;
-  blockNumber?: number;
+  blockNumber?: string;
   gasUsed?: string;
   gasPrice?: string;
 }
@@ -69,7 +69,7 @@ export const getEthereumTransactions = async (
       timestamp: new Date(parseInt(tx.timeStamp, 10) * 1000),
       status: parseInt(tx.confirmations, 10) > 0 ? 'completed' : 'pending',
       txHash: tx.hash,
-      blockNumber: parseInt(tx.blockNumber, 10),
+      blockNumber: tx.blockNumber,
       gasUsed: tx.gasUsed,
       gasPrice: tx.gasPrice,
     }));
@@ -110,7 +110,7 @@ const getEthereumTransactionsAlternative = async (
           timestamp: new Date(parseInt(tx.timeStamp, 10) * 1000),
           status: parseInt(tx.confirmations, 10) > 0 ? 'completed' : 'pending',
           txHash: tx.hash,
-          blockNumber: parseInt(tx.blockNumber, 10),
+          blockNumber: tx.blockNumber,
           gasUsed: tx.gasUsed,
           gasPrice: tx.gasPrice,
         }));

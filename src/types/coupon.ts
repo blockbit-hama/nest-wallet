@@ -91,7 +91,7 @@ export interface SponsorTransactionRequest {
   
   couponList: Array<{ // 사용할 쿠폰 리스트 (amount 총량은 feeInDollar + opswalletFeeInDollar 보다 커야한다)
     couponCode: string;
-    amount: number;
+    amount: string;
   }>;
   
   senderAddress?: string; // optional - 우리가 독립적으로 고객에게 보내 줄 때 고객 주소

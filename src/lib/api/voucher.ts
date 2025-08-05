@@ -18,7 +18,16 @@ export interface RegisterCouponRequest {
 export interface RegisterCouponResponse {
   success: boolean;
   message: string;
-  data?: any;
+  data?: {
+    masterAddress: string;
+    voucherCode: string;
+    couponCode: string;
+    amount: string;
+    fiatCode: string;
+    redeemDate: string;
+    expireDate: string;
+    status: string;
+  };
   error?: string;
 }
 
@@ -31,7 +40,7 @@ export interface GetCouponsResponse {
 
 export interface CreateVoucherRequest {
   code: string;
-  amount: number;
+  amount: string;
   fiatCode: string;
   status?: string;
   expireDate: string;
@@ -57,7 +66,7 @@ export interface CouponTransferRequest {
   opswalletFeeInDollar?: string;
   couponList: Array<{
     couponCode: string;
-    amount: number;
+    amount: string;
   }>;
   senderAddress?: string;
   transaction?: {

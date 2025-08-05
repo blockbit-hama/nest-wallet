@@ -294,7 +294,7 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     })));
 
     let remainingRequired = requiredAmount;
-    const couponUsage: Array<{ couponCode: string; amount: number }> = [];
+    const couponUsage: Array<{ couponCode: string; amount: string }> = [];
 
     // 적은 쿠폰부터 차감
     for (const coupon of sortedCoupons) {
@@ -305,7 +305,7 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
       const useAmount = Math.min(couponAmount, remainingRequired);
       couponUsage.push({
         couponCode: coupon.code,
-        amount: parseFloat(useAmount.toFixed(2))
+        amount: useAmount.toFixed(2)
       });
       
       remainingRequired -= useAmount;
