@@ -5,7 +5,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001';
 // 환경 변수 로그 출력 (클라이언트 사이드)
 console.log('🔧 Voucher API Configuration:');
 console.log('   NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-console.log('   NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
 console.log('   Final API_BASE_URL:', API_BASE_URL);
 console.log('=====================================');
 
@@ -173,7 +172,7 @@ export const registerCoupon = async (
     console.log('4-2. Signature length:', signature.length);
 
     // 4. 쿠폰 등록
-    const requestUrl = `${API_BASE_URL}/api/v1/coupons/register`;
+    const requestUrl = `${API_BASE_URL}/v1/coupons/register`;
     const requestData = {
       masterAddress,
       nonce: nonceResponse.nonce,
@@ -219,7 +218,7 @@ export const registerCoupon = async (
 export const getCouponsByMasterAddress = async (masterAddress: string): Promise<GetCouponsResponse> => {
   try {
     console.log('쿠폰 목록 조회 시작, masterAddress:', masterAddress);
-    const response = await axios.get(`${API_BASE_URL}/api/v1/coupons/couponlist/${encodeURIComponent(masterAddress)}`);
+    const response = await axios.get(`${API_BASE_URL}/v1/coupons/couponlist/${encodeURIComponent(masterAddress)}`);
     console.log('쿠폰 목록 조회 응답:', response.data);
     
     // 서버 응답에 coupons 배열이 있으면 성공으로 처리
@@ -255,7 +254,7 @@ export const createCouponTransfer = async (transferData: CouponTransferRequest):
   try {
     console.log('쿠폰 전송 시작:', transferData);
     
-    const requestUrl = `${API_BASE_URL}/api/v1/transaction/sponsor`;
+    const requestUrl = `${API_BASE_URL}/v1/transaction/sponsor`;
     const response = await axios.post(requestUrl, transferData);
     
     console.log('쿠폰 전송 응답:', response.data);
@@ -276,7 +275,7 @@ export const getFeePayPublicKey = async (currencyId: string): Promise<{ key: str
   try {
     console.log('FeePay 공개키 조회 시작:', currencyId);
     
-    const requestUrl = `${API_BASE_URL}/api/v1/transaction/feepay-key?currencyId=${currencyId}`;
+    const requestUrl = `${API_BASE_URL}/v1/transaction/feepay-key?currencyId=${currencyId}`;
     
     console.log('FeePay 공개키 조회 요청:', { url: requestUrl });
     

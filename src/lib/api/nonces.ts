@@ -1,7 +1,7 @@
 // Nonce 관련 API 클라이언트
 import { CreateNonceRequest, CreateNonceResponse } from '../../types/coupon';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001';
 
 // Nonce 생성
 export async function createNonce(data: CreateNonceRequest): Promise<CreateNonceResponse> {

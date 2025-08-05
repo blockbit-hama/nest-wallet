@@ -8,7 +8,7 @@ import {
   TransactionStatusResponse
 } from '../../types/coupon';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001';
 
 // 쿠폰 등록
 export async function registerCoupon(data: RegisterCouponRequest): Promise<RegisterCouponResponse> {

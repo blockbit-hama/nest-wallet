@@ -8,11 +8,11 @@ export const ENV = {
 // API 엔드포인트
 export const API_ENDPOINTS = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001',
-  VOUCHER: '/api/voucher',
-  EXCHANGE_RATE: '/api/exchange-rate',
+  VOUCHER: '/api/v1/vouchers',
+  EXCHANGE_RATE: '/api/v1/exchange-rate',
   SPONSOR_TRANSACTION: '/api/v1/transaction/sponsor',
   TRANSACTION_STATUS: '/api/v1/transaction/status',
-  NONCE: '/api/nonce'
+  NONCE: '/api/v1/auth/nonce'
 } as const;
 
 // 지갑 관련 상수
