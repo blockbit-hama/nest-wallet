@@ -3,8 +3,8 @@
 export interface Coupon {
   id: number;
   code: string;
-  amount: string;
-  amountRemaining: string;
+  amount: number;
+  amountRemaining: number;
   fiatCode: string;
   masterAddress: string;
   walletGroupId: string;
@@ -19,7 +19,7 @@ export interface Coupon {
 export interface Voucher {
   id: number;
   code: string;
-  amount: string;
+  amount: number;
   fiatCode: string;
   status: 'ISSUED' | 'EXPIRED' | 'REDEEMED';
   totalCouponsIssued: number;
@@ -63,7 +63,7 @@ export interface RegisterCouponResponse {
   masterAddress: string;
   voucherCode: string;
   couponCode: string;
-  amount: string;
+  amount: number;
   fiatCode: string;
   createDate: string;
   expireDate: string;
@@ -86,12 +86,12 @@ export interface SponsorTransactionRequest {
   
   currencyId: string; // 송금(스왑) 코인 종류 (필수)
   estimatedFee: string; // 고객 송금시 필요한 예상 수수료 * 1.5
-  feeInDollar: string; // estimatedFee의 달러 환산
-  opswalletFeeInDollar?: string; // optional - 우리가 독립적으로 먼저 보내 줄 때 필요한 예상 수수료
+  feeInDollar: number; // estimatedFee의 달러 환산
+  opswalletFeeInDollar?: number; // optional - 우리가 독립적으로 먼저 보내 줄 때 필요한 예상 수수료
   
   couponList: Array<{ // 사용할 쿠폰 리스트 (amount 총량은 feeInDollar + opswalletFeeInDollar 보다 커야한다)
     couponCode: string;
-    amount: string;
+    amount: number;
   }>;
   
   senderAddress?: string; // optional - 우리가 독립적으로 고객에게 보내 줄 때 고객 주소

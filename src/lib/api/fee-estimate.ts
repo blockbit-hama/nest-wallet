@@ -22,7 +22,7 @@ export interface FeeEstimate {
   gasPrice: string;
   gasLimit: string;
   estimatedFee: string;
-  feeInDollar: string;
+  feeInDollar: number;
   priority: 'low' | 'medium' | 'high';
 }
 
@@ -32,7 +32,7 @@ export interface SolanaFeeEstimate {
   network: string;
   feeInLamports: number;
   feeInSol: string;
-  feeInDollar: string;
+  feeInDollar: number;
   priority: 'low' | 'medium' | 'high';
   computeUnits: number;
 }
@@ -231,7 +231,7 @@ export async function estimateTransactionFee(
       gasPrice: (gasPriceWei / Math.pow(10, 9)).toFixed(2), // Gwei
       gasLimit: gasLimit.toString(),
       estimatedFee: estimatedFeeEth.toString(),
-      feeInDollar: feeInDollar.toString(),
+      feeInDollar: feeInDollar,
       priority: 'medium'
     };
   } catch (error) {
@@ -337,7 +337,7 @@ export async function getEthereumGasPrice(): Promise<FeeEstimate | null> {
       gasPrice: gasPriceGwei.toFixed(2),
       gasLimit: gasLimit.toString(),
       estimatedFee: estimatedFeeEth.toFixed(6),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium'
     };
   } catch (error) {
@@ -390,7 +390,7 @@ export async function getPolygonGasPrice(): Promise<FeeEstimate | null> {
       gasPrice: gasPriceGwei.toFixed(2),
       gasLimit: gasLimit.toString(),
       estimatedFee: estimatedFeeMatic.toFixed(6),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium'
     };
   } catch (error) {
@@ -443,7 +443,7 @@ export async function getBSCGasPrice(): Promise<FeeEstimate | null> {
       gasPrice: gasPriceGwei.toFixed(2),
       gasLimit: gasLimit.toString(),
       estimatedFee: estimatedFeeBnb.toFixed(6),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium'
     };
   } catch (error) {
@@ -496,7 +496,7 @@ export async function getAvalancheGasPrice(): Promise<FeeEstimate | null> {
       gasPrice: gasPriceGwei.toFixed(2),
       gasLimit: gasLimit.toString(),
       estimatedFee: estimatedFeeAvax.toFixed(6),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium'
     };
   } catch (error) {
@@ -534,7 +534,7 @@ export async function getBitcoinFee(): Promise<FeeEstimate | null> {
       gasPrice: averageFee.toFixed(2),
       gasLimit: estimatedBytes.toString(),
       estimatedFee: estimatedFeeBtc.toFixed(8),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium'
     };
   } catch (error) {
@@ -743,7 +743,7 @@ export async function estimateAdvancedTransactionFee(
       gasPrice: (gasPriceWei / Math.pow(10, 9)).toFixed(2), // Gwei
       gasLimit: gasLimit.toString(),
       estimatedFee: estimatedFeeEth.toFixed(6),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium'
     };
   } catch (error) {
@@ -804,7 +804,7 @@ export async function estimateSolanaFee(
       network: 'solana',
       feeInLamports: totalFee,
       feeInSol: feeInSol.toFixed(9),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium',
       computeUnits: computeUnits
     };
@@ -823,7 +823,7 @@ function getDefaultSolanaFee(): SolanaFeeEstimate {
     network: 'solana',
     feeInLamports: 5000,
     feeInSol: '0.000005',
-    feeInDollar: '0.0005',
+    feeInDollar: 0.0005,
     priority: 'medium',
     computeUnits: 200000
   };
@@ -907,7 +907,7 @@ export async function simulateSolanaTransaction(
       network: 'solana',
       feeInLamports: feeInLamports,
       feeInSol: feeInSol.toFixed(9),
-      feeInDollar: feeInDollar.toFixed(2),
+      feeInDollar: feeInDollar,
       priority: 'medium',
       computeUnits: simulation.value.unitsConsumed || 200000
     };
@@ -926,7 +926,7 @@ export interface SolanaDynamicFee {
   computeUnitPrice: number;
   totalFee: number;
   feeInSol: string;
-  feeInDollar: string;
+  feeInDollar: number;
   reason: string;
 }
 
@@ -1002,7 +1002,7 @@ export async function calculateSolanaDynamicFee(
       computeUnitPrice,
       totalFee,
       feeInSol: feeInSol.toFixed(9),
-      feeInDollar: feeInDollar.toFixed(4),
+      feeInDollar: feeInDollar,
       reason
     };
   } catch (error) {

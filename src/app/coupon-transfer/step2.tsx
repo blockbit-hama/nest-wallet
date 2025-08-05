@@ -158,8 +158,8 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
       nonce,
       currencyId: transferData.currency,
       estimatedFee: transferData.estimatedFee,
-      feeInDollar: transferData.feeInDollar,
-      opswalletFeeInDollar: transferData.opswalletFeeInDollar || "1.00",
+      feeInDollar: parseFloat(transferData.feeInDollar),
+      opswalletFeeInDollar: parseFloat(transferData.opswalletFeeInDollar || "1.00"),
       couponList: calculateOptimalCouponUsage(transferData.selectedCoupons, parseFloat(transferData.feeInDollar) + parseFloat(transferData.opswalletFeeInDollar || "0")),
       senderAddress: transferData.senderAddress,
       transaction: {
@@ -294,7 +294,7 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     })));
 
     let remainingRequired = requiredAmount;
-    const couponUsage: Array<{ couponCode: string; amount: string }> = [];
+    const couponUsage: Array<{ couponCode: string; amount: number }> = [];
 
     // 적은 쿠폰부터 차감
     for (const coupon of sortedCoupons) {
@@ -305,7 +305,7 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
       const useAmount = Math.min(couponAmount, remainingRequired);
       couponUsage.push({
         couponCode: coupon.code,
-        amount: useAmount.toFixed(2)
+        amount: parseFloat(useAmount.toFixed(2))
       });
       
       remainingRequired -= useAmount;
