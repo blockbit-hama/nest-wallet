@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001';
+const API_BASE_URL = process.env.GAS_COUPON_API_URL || 'http://localhost:9001';
 
 // 환경 변수 로그 출력 (클라이언트 사이드)
 console.log('🔧 Voucher API Configuration:');
-console.log('   NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+console.log('   GAS_COUPON_API_URL:', process.env.GAS_COUPON_API_URL);
 console.log('   Final API_BASE_URL:', API_BASE_URL);
 console.log('=====================================');
 
@@ -129,7 +129,7 @@ export const createVoucher = async (
  */
 export const createNonce = async (data: { masterAddress: string }): Promise<{ nonce: string }> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/nonce`, {
+    const response = await fetch(`${API_BASE_URL}/v1/auth/nonce`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -275,12 +275,25 @@ export const createCouponTransfer = async (transferData: CouponTransferRequest):
   }
 };
 
+// FeePay 공개키 응답 타입 정의
+export interface FeePayPublicKeyResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    key: string;
+    address?: string;
+    publicKey?: string;
+    network?: string;
+  };
+  error?: string;
+}
+
 /**
- * FeePay 공개키 조회 API
+ * FeePay 공개키 조회 API (Front 표준 응답)
  * @param currencyId - 통화 ID
- * @returns FeePay 공개키
+ * @returns FeePay 공개키 응답
  */
-export const getFeePayPublicKey = async (currencyId: string): Promise<{ key: string }> => {
+export const getFeePayPublicKey = async (currencyId: string): Promise<FeePayPublicKeyResponse> => {
   try {
     console.log('FeePay 공개키 조회 시작:', currencyId);
     
@@ -291,7 +304,21 @@ export const getFeePayPublicKey = async (currencyId: string): Promise<{ key: str
     const response = await axios.get(requestUrl);
     console.log('FeePay 공개키 조회 응답:', response.data);
     
-    return response.data;
+    // Front 표준 응답 구조로 반환
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'FeePay 공개키를 성공적으로 조회했습니다.',
+        data: response.data.data,
+      };
+    } else {
+      return {
+        success: false,
+        message: response.data.message || 'FeePay 공개키 조회에 실패했습니다.',
+        error: response.data.error || 'Unknown error',
+        data: response.data.data, // 에러 상세 정보도 포함
+      };
+    }
   } catch (error: any) {
     console.error('FeePay 공개키 조회 실패:', error);
     
@@ -301,6 +328,10 @@ export const getFeePayPublicKey = async (currencyId: string): Promise<{ key: str
                         error.message || 
                         'FeePay 공개키 조회에 실패했습니다.';
     
-    throw new Error(errorMessage);
+    return {
+      success: false,
+      message: errorMessage,
+      error: errorMessage,
+    };
   }
 };

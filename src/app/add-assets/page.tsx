@@ -18,6 +18,9 @@ interface Asset {
   changeColor: string;
   isEnabled: boolean;
   derivationPath?: string;
+  isTestnet?: boolean;
+  rpcUrl?: string;
+  networkType?: string;
 }
 
 // 사용자 정의 자산 타입
@@ -48,21 +51,33 @@ export default function AddAssetsPage() {
   const { updateEnabledAssets, loadEnabledAssets } = useEnabledAssets();
   const { generateNewAssetKey } = useWallet();
 
-  // 지원하는 암호화폐 목록 (기본 자산들)
+  // 지원하는 암호화폐 목록 (기본 자산들 + 테스트넷)
   const supportedAssets = [
-    { id: "btc", symbol: "BTC", name: "Bitcoin", icon: "₿" },
-    { id: "eth", symbol: "ETH", name: "Ethereum", icon: "Ξ" },
-    { id: "sol", symbol: "SOL", name: "Solana", icon: "◎" },
-    { id: "usdt", symbol: "USDT", name: "Tether", icon: "$" },
-    { id: "matic", symbol: "MATIC", name: "Polygon", icon: "M" },
-    { id: "bsc", symbol: "BSC", name: "BNB", icon: "B" },
-    { id: "avax", symbol: "AVAX", name: "Avalanche", icon: "A" },
+    { id: "btc", symbol: "BTC", name: "Bitcoin", icon: "₿", networkType: "Bitcoin Mainnet" },
+    { id: "eth", symbol: "ETH", name: "Ethereum", icon: "Ξ", networkType: "Ethereum Mainnet", rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/GPTx_vXGL4Z6NxRMjBTHowIQU8-Jt0c-" },
+    { id: "sol", symbol: "SOL", name: "Solana", icon: "◎", networkType: "Solana Mainnet", rpcUrl: "https://solana-mainnet.g.allthatnode.com/archive/json_rpc/006290a8b32b4a3e86cdc5c949333263" },
+    { id: "base", symbol: "BASE", name: "Base", icon: "B", networkType: "Base Mainnet", rpcUrl: "https://base-mainnet.g.allthatnode.com/archive/evm/006290a8b32b4a3e86cdc5c949333263" },
+    { id: "usdt", symbol: "USDT", name: "Tether", icon: "$", networkType: "Ethereum Mainnet" },
+    { id: "matic", symbol: "MATIC", name: "Polygon", icon: "M", networkType: "Polygon Mainnet" },
+    { id: "bsc", symbol: "BSC", name: "BNB", icon: "B", networkType: "BNB Smart Chain" },
+    { id: "avax", symbol: "AVAX", name: "Avalanche", icon: "A", networkType: "Avalanche C-Chain" },
+    // 테스트넷 자산들
+    { id: "eth-goerli", symbol: "ETH-GOERLI", name: "Ethereum Goerli", icon: "Ξ", isTestnet: true, networkType: "Ethereum Goerli Testnet", rpcUrl: "https://eth-goerli.g.alchemy.com/v2/your-api-key" },
+    { id: "eth-sepolia", symbol: "ETH-SEPOLIA", name: "Ethereum Sepolia", icon: "Ξ", isTestnet: true, networkType: "Ethereum Sepolia Testnet", rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/hlm24QaedvTfFFy2vnHyP_lgadkFT1Sg" },
+    { id: "sol-devnet", symbol: "SOL-DEVNET", name: "Solana Devnet", icon: "◎", isTestnet: true, networkType: "Solana Devnet", rpcUrl: "https://solana-devnet.g.allthatnode.com/archive/json_rpc/006290a8b32b4a3e86cdc5c949333263" },
+    { id: "sol-testnet", symbol: "SOL-TESTNET", name: "Solana Testnet", icon: "◎", isTestnet: true, networkType: "Solana Testnet", rpcUrl: "https://api.testnet.solana.com" },
+    { id: "base-goerli", symbol: "BASE-GOERLI", name: "Base Goerli", icon: "B", isTestnet: true, networkType: "Base Goerli Testnet", rpcUrl: "https://goerli.base.org" },
+    { id: "base-sepolia", symbol: "BASE-SEPOLIA", name: "Base Sepolia", icon: "B", isTestnet: true, networkType: "Base Sepolia Testnet", rpcUrl: "https://base-sepolia.g.allthatnode.com/full/evm/006290a8b32b4a3e86cdc5c949333263" },
   ];
 
   // 실시간 가격 정보 로드
   const loadAssetPrices = async () => {
-    const symbols = supportedAssets.map(asset => asset.symbol);
-    const cryptoPrices = await getCryptoPrices(symbols);
+    // 메인넷 자산들만 가격 정보 조회 (테스트넷은 가격 정보 없음)
+    const mainnetSymbols = supportedAssets
+      .filter(asset => !asset.isTestnet)
+      .map(asset => asset.symbol);
+    
+    const cryptoPrices = await getCryptoPrices(mainnetSymbols);
 
     // 가격 정보를 assets 배열에 매핑 (isEnabled는 기존 상태 유지)
     const assetsWithPrices = supportedAssets.map(asset => {
@@ -73,10 +88,13 @@ export default function AddAssetsPage() {
         symbol: asset.symbol,
         name: asset.name,
         icon: asset.icon,
-        price: priceData ? formatPrice(priceData.price) : '$0.00',
-        change: priceData ? formatChangePercentage(priceData.priceChangePercentage24h) : '0.00%',
-        changeColor: priceData ? getChangeColor(priceData.priceChangePercentage24h) : '#A0A0B0',
-        isEnabled: false // 초기값, 나중에 저장된 상태로 덮어씌워짐
+        price: asset.isTestnet ? 'Testnet' : (priceData ? formatPrice(priceData.price) : '$0.00'),
+        change: asset.isTestnet ? 'N/A' : (priceData ? formatChangePercentage(priceData.priceChangePercentage24h) : '0.00%'),
+        changeColor: asset.isTestnet ? '#A0A0B0' : (priceData ? getChangeColor(priceData.priceChangePercentage24h) : '#A0A0B0'),
+        isEnabled: false, // 초기값, 나중에 저장된 상태로 덮어씌워짐
+        isTestnet: asset.isTestnet,
+        rpcUrl: asset.rpcUrl,
+        networkType: asset.networkType
       };
     });
 
@@ -223,8 +241,20 @@ export default function AddAssetsPage() {
       
       console.log('새로 추가된 자산들:', newlyAddedAssets);
       
-      // 새로 추가된 자산들에 대해 주소와 개인키 생성
-      for (const symbol of newlyAddedAssets) {
+      // 현재 지갑 정보 가져오기
+      const wallets = JSON.parse(localStorage.getItem('hdWallets') || '[]');
+      const currentWallet = wallets.find((w: any) => w.id === localStorage.getItem('selectedWalletId'));
+      
+      // 활성화된 모든 자산에 대해 주소가 없으면 생성
+      const assetsNeedingAddresses = enabledSymbols.filter(symbol => {
+        if (!currentWallet || !currentWallet.addresses) return true;
+        return !currentWallet.addresses[symbol];
+      });
+      
+      console.log('주소가 필요한 자산들:', assetsNeedingAddresses);
+      
+      // 주소가 필요한 자산들에 대해 주소와 개인키 생성
+      for (const symbol of assetsNeedingAddresses) {
         try {
           console.log(`${symbol} 자산의 주소와 개인키 생성 중...`);
           
@@ -235,16 +265,21 @@ export default function AddAssetsPage() {
           if (asset?.derivationPath) {
             // 사용자 정의 자산
             derivationPath = asset.derivationPath;
-          } else if (symbol === 'SOL') {
-            // 솔라나는 고정된 derivation path 사용
+          } else if (symbol.includes('SOL')) {
+            // 솔라나 계열 (메인넷, 테스트넷, 데브넷)
             derivationPath = "m/44'/501'/0'/0/0";
-          } else if (symbol === 'ETH') {
-            // ETH 추가 주소
-            const existingEthAddresses = enabledSymbols.filter(s => s.startsWith('ETH'));
+          } else if (symbol.includes('ETH') || symbol.includes('BASE')) {
+            // 이더리움 계열 (메인넷, 테스트넷)
+            const existingEthAddresses = enabledSymbols.filter(s => s.includes('ETH') || s.includes('BASE'));
             derivationPath = getNextEthAddressPath(existingEthAddresses);
           } else {
             // 다른 토큰들 (account로 구분)
-            const existingAssets = enabledSymbols.filter(s => s !== 'BTC' && s !== 'ETH' && s !== 'SOL' && !s.startsWith('ETH'));
+            const existingAssets = enabledSymbols.filter(s => 
+              s !== 'BTC' && 
+              !s.includes('ETH') && 
+              !s.includes('SOL') && 
+              !s.includes('BASE')
+            );
             derivationPath = getNextAccountPath(existingAssets);
           }
           
@@ -258,23 +293,13 @@ export default function AddAssetsPage() {
               derivationPath
             });
             
-            // 지갑 정보 업데이트 (로컬 스토리지에 저장)
-            const wallets = JSON.parse(localStorage.getItem('hdWallets') || '[]');
-            const currentWallet = wallets.find((w: any) => w.id === localStorage.getItem('selectedWalletId'));
-            
             if (currentWallet) {
               // 주소와 개인키 추가
-              currentWallet.addresses[symbol] = newAssetKey.address;
-              if (!currentWallet.privateKeys) {
-                currentWallet.privateKeys = {};
-              }
-              currentWallet.privateKeys[symbol] = newAssetKey.privateKey;
+              if (!currentWallet.addresses) currentWallet.addresses = {};
+              if (!currentWallet.privateKeys) currentWallet.privateKeys = {};
               
-              // 업데이트된 지갑 정보 저장
-              const updatedWallets = wallets.map((w: any) => 
-                w.id === currentWallet.id ? currentWallet : w
-              );
-              localStorage.setItem('hdWallets', JSON.stringify(updatedWallets));
+              currentWallet.addresses[symbol] = newAssetKey.address;
+              currentWallet.privateKeys[symbol] = newAssetKey.privateKey;
               
               console.log(`${symbol} 자산이 지갑에 추가되었습니다.`);
             }
@@ -286,6 +311,15 @@ export default function AddAssetsPage() {
         }
       }
       
+      // 지갑 정보 업데이트를 한 번에 저장
+      if (currentWallet && assetsNeedingAddresses.length > 0) {
+        const updatedWallets = wallets.map((w: any) => 
+          w.id === currentWallet.id ? currentWallet : w
+        );
+        localStorage.setItem('hdWallets', JSON.stringify(updatedWallets));
+        console.log('지갑 정보 업데이트 완료');
+      }
+      
       // 활성화된 자산 업데이트 (이 함수가 localStorage에 저장함)
       updateEnabledAssets(enabledSymbols);
       
@@ -293,6 +327,9 @@ export default function AddAssetsPage() {
         enabledAssets,
         enabledSymbols
       });
+      
+      // 지갑 목록 새로고침 이벤트 발생
+      window.dispatchEvent(new CustomEvent('walletsUpdated'));
       
       // 디버깅용: 저장 후 localStorage 확인
       const debugEnabledAssets = localStorage.getItem('enabledAssets');
@@ -338,14 +375,11 @@ export default function AddAssetsPage() {
           토글을 켜면 홈 화면에 해당 가상자산이 표시됩니다.
         </div>
         
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="w-8 h-8 border-4 border-[#F2A003] border-t-transparent rounded-full animate-spin"></div>
-            <span className="ml-3 text-white">가격 정보를 불러오는 중...</span>
-          </div>
-        ) : (
+        {/* 메인넷 자산 섹션 */}
+        <div className="mb-6">
+          <h3 className="text-white font-semibold mb-3 text-lg">메인넷 자산</h3>
           <div className="space-y-3">
-            {assets.map((asset) => (
+            {assets.filter(asset => !asset.isTestnet).map((asset) => (
               <div 
                 key={asset.id}
                 className="flex items-center justify-between p-4 rounded-xl"
@@ -355,28 +389,16 @@ export default function AddAssetsPage() {
                 <div className="flex items-center gap-4">
                   {/* 아이콘 */}
                   <div 
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg relative"
                     style={{ 
-                      background: asset.symbol === 'BTC' ? 'linear-gradient(135deg, #F7931A, #FFB800)' :
-                                asset.symbol === 'ETH' ? 'linear-gradient(135deg, #627EEA, #B2BFFF)' :
+                      background: asset.symbol.includes('ETH') ? 'linear-gradient(135deg, #627EEA, #B2BFFF)' :
+                                asset.symbol.includes('SOL') ? 'linear-gradient(135deg, #9945FF, #14F195)' :
+                                asset.symbol.includes('BASE') ? 'linear-gradient(135deg, #0052FF, #4C5BB3)' :
+                                asset.symbol === 'BTC' ? 'linear-gradient(135deg, #F7931A, #FFB800)' :
                                 asset.symbol === 'USDT' ? 'linear-gradient(135deg, #26A17B, #baffd7)' :
-                                asset.symbol === 'USDC' ? 'linear-gradient(135deg, #2775CA, #5A9FD4)' :
                                 asset.symbol === 'MATIC' ? 'linear-gradient(135deg, #8247E5, #A855F7)' :
                                 asset.symbol === 'BSC' ? 'linear-gradient(135deg, #F3BA2F, #F7931A)' :
                                 asset.symbol === 'AVAX' ? 'linear-gradient(135deg, #E84142, #FF6B6B)' :
-                                asset.symbol === 'SOL' ? 'linear-gradient(135deg, #9945FF, #14F195)' :
-                                asset.symbol === 'ADA' ? 'linear-gradient(135deg, #0033AD, #4C5BB3)' :
-                                asset.symbol === 'DOT' ? 'linear-gradient(135deg, #E6007A, #FF6B9D)' :
-                                asset.symbol === 'LINK' ? 'linear-gradient(135deg, #2A5ADA, #4C5BB3)' :
-                                asset.symbol === 'UNI' ? 'linear-gradient(135deg, #FF007A, #FF6B9D)' :
-                                asset.symbol === 'LTC' ? 'linear-gradient(135deg, #BEBEBE, #D3D3D3)' :
-                                asset.symbol === 'BCH' ? 'linear-gradient(135deg, #F7931A, #FFB800)' :
-                                asset.symbol === 'XRP' ? 'linear-gradient(135deg, #23292F, #4C5BB3)' :
-                                asset.symbol === 'DOGE' ? 'linear-gradient(135deg, #C2A633, #D4AF37)' :
-                                asset.symbol === 'SHIB' ? 'linear-gradient(135deg, #FF6B6B, #FF8E8E)' :
-                                asset.symbol === 'TRX' ? 'linear-gradient(135deg, #FF6B6B, #FF8E8E)' :
-                                asset.symbol === 'XLM' ? 'linear-gradient(135deg, #4C5BB3, #6B7BC6)' :
-                                asset.symbol === 'VET' ? 'linear-gradient(135deg, #15BDFF, #4CC3FF)' :
                                 'linear-gradient(135deg, #2E5A88, #4C5BB3)'
                     }}
                   >
@@ -385,8 +407,18 @@ export default function AddAssetsPage() {
                   
                   {/* 자산 정보 */}
                   <div>
-                    <div className="text-white font-semibold">{asset.name}</div>
+                    <div className="text-white font-semibold flex items-center gap-2">
+                      {asset.name}
+                    </div>
                     <div className="text-gray-400 text-sm">{asset.symbol}</div>
+                    {asset.networkType && (
+                      <div className="text-gray-500 text-xs">{asset.networkType}</div>
+                    )}
+                    {asset.rpcUrl && (
+                      <div className="text-gray-600 text-xs max-w-xs truncate" title={asset.rpcUrl}>
+                        RPC: {asset.rpcUrl}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -416,7 +448,99 @@ export default function AddAssetsPage() {
               </div>
             ))}
           </div>
-        )}
+        </div>
+
+        {/* 테스트넷 자산 섹션 */}
+        <div className="mb-6">
+          <h3 className="text-white font-semibold mb-3 text-lg flex items-center gap-2">
+            <span className="text-[#F2A003]">🧪</span>
+            테스트넷 자산
+          </h3>
+          <div className="text-gray-400 text-sm mb-3">
+            개발 및 테스트용 네트워크입니다. 실제 가치가 없습니다.
+          </div>
+          <div className="space-y-3">
+            {assets.filter(asset => asset.isTestnet).map((asset) => (
+              <div 
+                key={asset.id}
+                className="flex items-center justify-between p-4 rounded-xl"
+                style={{ 
+                  background: '#1a1b1f',
+                  border: '1px solid #F2A003'
+                }}
+              >
+                {/* 자산 정보 */}
+                <div className="flex items-center gap-4">
+                  {/* 아이콘 */}
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg relative"
+                    style={{ 
+                      background: asset.symbol.includes('ETH') ? 'linear-gradient(135deg, #627EEA, #B2BFFF)' :
+                                asset.symbol.includes('SOL') ? 'linear-gradient(135deg, #9945FF, #14F195)' :
+                                asset.symbol.includes('BASE') ? 'linear-gradient(135deg, #0052FF, #4C5BB3)' :
+                                'linear-gradient(135deg, #2E5A88, #4C5BB3)'
+                    }}
+                  >
+                    {asset.icon}
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#F2A003] rounded-full flex items-center justify-center">
+                      <span className="text-xs text-white font-bold">T</span>
+                    </div>
+                  </div>
+                  
+                  {/* 자산 정보 */}
+                  <div>
+                    <div className="text-white font-semibold flex items-center gap-2">
+                      {asset.name}
+                      <span className="text-xs bg-[#F2A003] text-white px-2 py-1 rounded-full">
+                        TESTNET
+                      </span>
+                    </div>
+                    <div className="text-gray-400 text-sm">{asset.symbol}</div>
+                    {asset.networkType && (
+                      <div className="text-gray-500 text-xs">{asset.networkType}</div>
+                    )}
+                    {asset.rpcUrl && (
+                      <div className="text-gray-600 text-xs max-w-xs truncate" title={asset.rpcUrl}>
+                        RPC: {asset.rpcUrl}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 가격 정보 */}
+                <div className="text-right">
+                  <div className="text-white font-semibold">{asset.price}</div>
+                  <div className="text-sm" style={{ color: asset.changeColor }}>
+                    {asset.change}
+                  </div>
+                </div>
+
+                {/* 토글 버튼 */}
+                <div className="ml-4">
+                  <button
+                    onClick={() => handleToggle(asset.id)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#F2A003] focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                      asset.isEnabled ? 'bg-[#F2A003]' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        asset.isEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-8 h-8 border-4 border-[#F2A003] border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-3 text-white">가격 정보를 불러오는 중...</span>
+          </div>
+        ) : null}
       </div>
 
       {/* 사용자 정의 자산 추가 섹션 */}

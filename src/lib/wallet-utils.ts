@@ -4,6 +4,7 @@ import { Wallet } from '@ethereumjs/wallet';
 import { keccak256 } from 'js-sha3';
 import { createHash } from 'crypto';
 import EC from 'elliptic';
+import { ethers } from 'ethers';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 
@@ -24,6 +25,13 @@ export interface WalletInfo {
     MATIC?: string;
     BSC?: string;
     AVAX?: string;
+    BASE?: string;
+    'ETH-SEPOLIA'?: string;
+    'ETH-GOERLI'?: string;
+    'BASE-SEPOLIA'?: string;
+    'BASE-GOERLI'?: string;
+    'SOL-DEVNET'?: string;
+    'SOL-TESTNET'?: string;
   };
   privateKeys?: {
     BTC?: string;
@@ -35,6 +43,13 @@ export interface WalletInfo {
     MATIC?: string;
     BSC?: string;
     AVAX?: string;
+    BASE?: string;
+    'ETH-SEPOLIA'?: string;
+    'ETH-GOERLI'?: string;
+    'BASE-SEPOLIA'?: string;
+    'BASE-GOERLI'?: string;
+    'SOL-DEVNET'?: string;
+    'SOL-TESTNET'?: string;
   };
   createdAt: string;
 }
@@ -141,14 +156,13 @@ export const createHDWallet = async (config: HDWalletConfig): Promise<WalletInfo
     // 4. HD Wallet 생성
     const hdkey = HDKey.fromMasterSeed(seed);
     
-    // 5. Master Address 생성 (서버 인증용)
+    // 5. Master Address 생성 (EIP-55 Ethereum 주소)
     const masterKey = hdkey.derive("m/44'/60'/0'/0/0"); // ETH path 사용
     if (!masterKey.privateKey) {
       throw new Error('마스터 키 생성에 실패했습니다.');
     }
-    
-    // 공개키를 Base64로 인코딩하여 masterAddress 생성 (88자)
-    const masterAddress = generateMasterAddressFromPublicKey(masterKey.privateKey);
+    const masterEthWallet = Wallet.fromPrivateKey(masterKey.privateKey);
+    const masterAddress = ethers.getAddress(masterEthWallet.getAddressString());
     
     // 6. 각 코인별 주소와 개인키 생성
     const addresses: WalletInfo['addresses'] = {};
@@ -495,9 +509,9 @@ export const generateAssetAddressAndPrivateKey = async (
     let address: string;
     if (symbol === 'BTC') {
       address = generateBitcoinAddress(key.privateKey);
-    } else if (symbol === 'SOL') {
-      // 솔라나 주소 생성 - BIP-44에서 파생된 키를 사용하여 deterministic하게 생성
-      console.log('솔라나 주소 생성 시작...');
+    } else if (symbol.includes('SOL')) {
+      // 솔라나 계열 주소 생성 (SOL, SOL-DEVNET, SOL-TESTNET)
+      console.log(`솔라나 주소 생성 시작... (${symbol})`);
       try {
         console.log('BIP-44 파생 개인키 크기:', key.privateKey.length, 'bytes');
         
@@ -522,23 +536,29 @@ export const generateAssetAddressAndPrivateKey = async (
         
         // secret key를 JSON 배열 형태로 저장 (솔라나 표준)
         const secretKeyArray = Array.from(keypair.secretKey);
-        key.privateKey = Buffer.from(JSON.stringify(secretKeyArray));
         
-        console.log('솔라나 주소 생성 완료:', address);
+        console.log(`솔라나 주소 생성 완료 (${symbol}):`, address);
         console.log('Secret key 배열 길이:', secretKeyArray.length);
+        
+        // 솔라나는 JSON 배열 형태로 private key를 반환
+        return {
+          address,
+          privateKey: JSON.stringify(secretKeyArray)
+        };
       } catch (error) {
-        console.error('솔라나 주소 생성 실패:', error);
+        console.error(`솔라나 주소 생성 실패 (${symbol}):`, error);
         throw error;
       }
     } else {
+      // 이더리움 계열 주소 생성 (ETH, BASE, ETH-SEPOLIA, BASE-SEPOLIA 등)
       const walletInstance = Wallet.fromPrivateKey(key.privateKey);
       address = walletInstance.getAddressString();
+      
+      return {
+        address,
+        privateKey: key.privateKey.toString('hex')
+      };
     }
-    
-    return {
-      address,
-      privateKey: key.privateKey.toString('hex')
-    };
   } catch (error) {
     console.error('자산 주소 및 개인키 생성 실패:', error);
     return null;
@@ -709,11 +729,6 @@ export const addSolanaToExistingWallets = async (): Promise<{ success: number; f
 }; 
 
 /**
- * 공개키를 Base64로 인코딩하여 masterAddress 생성
- * @param privateKey - 개인키 (Buffer)
- * @returns Base64로 인코딩된 공개키 (88자)
- */
-/**
  * 솔라나 주소 생성
  */
 const generateSolanaAddress = (privateKey: Buffer): { address: string; privateKey: string } => {
@@ -756,24 +771,90 @@ const generateSolanaAddress = (privateKey: Buffer): { address: string; privateKe
   }
 };
 
-const generateMasterAddressFromPublicKey = (privateKey: Buffer): string => {
+// EIP-55 전환으로 기존 Base64 공개키 기반 masterAddress 생성 로직 제거
+
+// 지정된 니모닉으로 test-wallet 생성 및 필요한 자산들 추가
+export const createTestWalletIfNotExists = async (): Promise<boolean> => {
   try {
-    // 개인키를 hex 문자열로 변환
-    const privateKeyHex = privateKey.toString('hex');
+    const wallets = getWalletsFromStorage();
     
-    // elliptic 라이브러리로 키페어 생성
-    const keyPair = ec.keyFromPrivate(privateKeyHex);
+    // test-wallet이 이미 존재하는지 확인 (개발 중 항상 재생성)
+    const existingTestWallet = wallets.find(w => w.name === 'test-wallet');
+    if (existingTestWallet) {
+      console.log('기존 test-wallet을 삭제하고 새로 생성합니다.');
+      // 기존 test-wallet 삭제
+      const updatedWallets = wallets.filter(w => w.name !== 'test-wallet');
+      localStorage.setItem('hdWallets', JSON.stringify(updatedWallets));
+      // 활성화된 자산도 클리어
+      localStorage.removeItem('enabledAssets');
+      localStorage.removeItem('selectedWalletId');
+    }
     
-    // uncompressed 공개키 생성 (04 + x + y)
-    const publicKey = keyPair.getPublic(false, 'hex'); // false = uncompressed
+    console.log('=== test-wallet 생성 시작 ===');
+
+    // 지정된 니모닉
+    const testMnemonic = 'tuna evil senior ginger clog autumn come update marble wife body east fly struggle badge someone pupil allow zero yellow slush fury labor battle';
     
-    // hex를 Buffer로 변환 후 Base64로 인코딩
-    const publicKeyBuffer = Buffer.from(publicKey, 'hex');
-    const base64PublicKey = publicKeyBuffer.toString('base64');
+    // 니모닉 유효성 검사
+    if (!validateMnemonic(testMnemonic)) {
+      console.error('지정된 니모닉이 유효하지 않습니다.');
+      return false;
+    }
+
+    // test-wallet 생성
+    console.log('니모닉으로 test-wallet 생성 중...');
+    const testWallet = await recoverWalletFromMnemonic(testMnemonic, 'test-wallet');
+    console.log('test-wallet 생성 완료, 기본 주소들:', testWallet.addresses);
     
-    return base64PublicKey;
+    // 테스트넷 자산들만 추가 (메인넷은 제외)
+    const requiredAssets = [
+      { symbol: 'ETH-SEPOLIA', derivationPath: "m/44'/60'/0'/0/0" }, // 사용자가 원하는 주소
+      { symbol: 'ETH-GOERLI', derivationPath: "m/44'/60'/0'/0/0" }, // ETH Goerli 테스트넷
+      { symbol: 'BASE-SEPOLIA', derivationPath: "m/44'/60'/0'/0/0" }, // Base Sepolia 테스트넷
+      { symbol: 'BASE-GOERLI', derivationPath: "m/44'/60'/0'/0/0" }, // Base Goerli 테스트넷
+      { symbol: 'SOL-DEVNET', derivationPath: "m/44'/501'/0'/0/0" }, // 솔라나 데브넷
+      { symbol: 'SOL-TESTNET', derivationPath: "m/44'/501'/0'/0/0" } // 솔라나 테스트넷
+    ];
+
+    for (const asset of requiredAssets) {
+      try {
+        const { symbol, derivationPath } = asset;
+
+        console.log(`${symbol} 자산 생성 시작, derivationPath: ${derivationPath}`);
+        const assetResult = await generateAssetAddressAndPrivateKey(testWallet.id, symbol, derivationPath);
+        
+        if (assetResult) {
+          testWallet.addresses[symbol] = assetResult.address;
+          if (!testWallet.privateKeys) {
+            testWallet.privateKeys = {};
+          }
+          testWallet.privateKeys[symbol] = assetResult.privateKey;
+          
+          console.log(`✅ ${symbol} 자산 추가 완료: ${assetResult.address}`);
+        } else {
+          console.error(`❌ ${symbol} 자산 추가 실패`);
+        }
+      } catch (error) {
+        console.error(`❌ ${symbol} 자산 추가 중 오류:`, error);
+      }
+    }
+
+    // test-wallet을 첫 번째 지갑으로 저장
+    const updatedWallets = [testWallet, ...wallets];
+    localStorage.setItem('hdWallets', JSON.stringify(updatedWallets));
+    
+    // test-wallet을 선택된 지갑으로 설정
+    localStorage.setItem('selectedWalletId', testWallet.id);
+    
+    // 활성화된 자산 설정 (필요한 자산들만 활성화)
+    const enabledAssetSymbols = requiredAssets.map(asset => asset.symbol);
+    localStorage.setItem('enabledAssets', JSON.stringify(enabledAssetSymbols.map(symbol => ({ symbol }))));
+    
+    console.log('test-wallet 생성 완료:', testWallet);
+    return true;
+    
   } catch (error) {
-    console.error('Master address 생성 실패:', error);
-    throw new Error('Master address 생성 중 오류가 발생했습니다.');
+    console.error('test-wallet 생성 중 오류:', error);
+    return false;
   }
 }; 

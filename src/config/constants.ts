@@ -7,7 +7,7 @@ export const ENV = {
 
 // API 엔드포인트
 export const API_ENDPOINTS = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001',
+  BASE_URL: process.env.GAS_COUPON_API_URL || 'http://localhost:9001',
   VOUCHER: '/api/v1/vouchers',
   EXCHANGE_RATE: '/api/v1/exchange-rate',
   SPONSOR_TRANSACTION: '/api/v1/transaction/sponsor',
@@ -32,7 +32,7 @@ export const WALLET_CONSTANTS = {
 
 // 가상자산 상수
 export const ASSET_CONSTANTS = {
-  DEFAULT_ENABLED_ASSETS: ['BTC', 'ETH', 'USDT'],
+  DEFAULT_ENABLED_ASSETS: ['BTC', 'ETH', 'SOL'],
   STORAGE_KEY: 'enabledAssets'
 } as const;
 

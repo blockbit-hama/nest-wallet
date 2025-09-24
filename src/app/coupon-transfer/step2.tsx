@@ -74,7 +74,12 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
     // 1. Nonce 요청 (쿠폰 서버 인증용)
     setLoadingStep("nonce 요청 중...");
     const nonceResponse = await createNonce({ masterAddress });
-    const nonce = nonceResponse.nonce;
+    
+    if (!nonceResponse.success || !nonceResponse.data) {
+      throw new Error(nonceResponse.message || 'Nonce 요청에 실패했습니다.');
+    }
+    
+    const nonce = nonceResponse.data.nonce;
     console.log('Nonce 요청 성공:', nonce);
 
     // 2. 쿠폰 서버 인증용 서명 생성 (1번 방식)
@@ -97,7 +102,16 @@ export function CouponTransferStep2({ transferData, onComplete, onBack }: Coupon
       // FeePay 공개키 가져오기
       setLoadingStep("FeePay 공개키 요청 중...");
       const feePayResponse = await getFeePayPublicKey('SOL');
-      const feePayerPublicKey = feePayResponse.key;
+      
+      if (!feePayResponse.success) {
+        throw new Error(feePayResponse.message || 'FeePay 공개키 조회에 실패했습니다.');
+      }
+      
+      if (!feePayResponse.data?.key) {
+        throw new Error('FeePay 공개키가 없습니다.');
+      }
+      
+      const feePayerPublicKey = feePayResponse.data.key;
       console.log('FeePay 공개키 가져오기 완료:', feePayerPublicKey);
       
       // 솔라나 트랜잭션 생성 및 서명

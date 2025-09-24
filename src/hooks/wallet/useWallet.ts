@@ -54,8 +54,13 @@ export const useWallet = (): UseWalletReturn => {
       
       const keys: AssetPrivateKey[] = [];
       
-      // 지원하는 자산들
-      const supportedAssets = ['BTC', 'ETH', 'USDT', 'ETH_GOERLI', 'ETH_SEPOLIA', 'MATIC', 'BSC', 'AVAX'];
+      // 지원하는 자산들 (모든 자산 포함)
+      const supportedAssets = [
+        'BTC', 'ETH', 'USDT', 'SOL', 'BASE', 'MATIC', 'BSC', 'AVAX',
+        'ETH-GOERLI', 'ETH-SEPOLIA', 'ETH_1', 'ETH_2',
+        'SOL-DEVNET', 'SOL-TESTNET',
+        'BASE-GOERLI', 'BASE-SEPOLIA'
+      ];
       
       // 각 자산에 대해 개인키 로드
       for (const symbol of supportedAssets) {

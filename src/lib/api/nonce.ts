@@ -1,6 +1,6 @@
 // Nonce API 관련 함수들
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001';
+const API_BASE_URL = process.env.GAS_COUPON_API_URL || 'http://localhost:9001';
 
 export interface NonceRequest {
   masterAddress: string;
@@ -11,6 +11,14 @@ export interface NonceResponse {
   message?: string;
 }
 
+// Front 표준 응답 타입
+export interface FrontStandardResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: string;
+}
+
 /**
  * masterAddress에 대한 nonce를 요청합니다.
  * @param masterAddress - 마스터 주소
@@ -18,7 +26,7 @@ export interface NonceResponse {
  */
 export async function requestNonce(masterAddress: string): Promise<NonceResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/nonce`, {
+    const response = await fetch(`${API_BASE_URL}/v1/auth/nonce`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

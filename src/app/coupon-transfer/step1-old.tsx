@@ -76,7 +76,13 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
     try {
       setLoading(true);
       const response = await getCouponsByMasterAddress(masterAddress);
-      setCoupons(response.coupons || []);
+      
+      if (response.success && response.data) {
+        setCoupons(response.data.coupons || []);
+      } else {
+        console.error('쿠폰 목록 조회 실패:', response.message);
+        setCoupons([]);
+      }
     } catch (error) {
       console.error('쿠폰 목록 조회 실패:', error);
       setCoupons([]);

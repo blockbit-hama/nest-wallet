@@ -23,6 +23,7 @@ provider "aws" {
       Project     = "nest-wallet"
       Environment = var.environment
       ManagedBy   = "terraform"
+      Owner       = "hama@iotrust.kr"
     }
   }
 }
@@ -381,12 +382,8 @@ resource "aws_ecs_task_definition" "environments" {
 
       secrets = [
         {
-          name      = "NEXT_PUBLIC_API_URL"
-          valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:NEXT_PUBLIC_API_URL::"
-        },
-        {
-          name      = "NEXT_PUBLIC_API_BASE_URL"
-          valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:NEXT_PUBLIC_API_BASE_URL::"
+          name      = "GAS_COUPON_API_URL"
+          valueFrom = "${each.key == "dev" ? aws_secretsmanager_secret.dev.arn : aws_secretsmanager_secret.prod.arn}:GAS_COUPON_API_URL::"
         }
       ]
 

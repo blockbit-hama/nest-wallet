@@ -4,9 +4,16 @@
 const INFURA_API_KEY = process.env.NEXT_PUBLIC_INFURA_API_KEY || 'your-infura-api-key';
 const INFURA_ENDPOINTS = {
   ethereum: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
+  sepolia: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
+  goerli: `https://goerli.infura.io/v3/${INFURA_API_KEY}`,
   polygon: `https://polygon-mainnet.infura.io/v3/${INFURA_API_KEY}`,
   bsc: 'https://bsc-dataseed1.binance.org/',
   avalanche: 'https://api.avax.network/ext/bc/C/rpc',
+  baseMainnet: 'https://base-mainnet.g.allthatnode.com/archive/evm/006290a8b32b4a3e86cdc5c949333263',
+  baseGoerli: 'https://goerli.base.org',
+  baseSepolia: 'https://base-sepolia.g.allthatnode.com/full/evm/006290a8b32b4a3e86cdc5c949333263',
+  solanaDevnet: 'https://solana-devnet.g.allthatnode.com/archive/json_rpc/006290a8b32b4a3e86cdc5c949333263',
+  solanaTestnet: 'https://api.testnet.solana.com',
 };
 
 export interface BlockchainBalance {
@@ -315,16 +322,338 @@ export async function getBitcoinBalance(address: string): Promise<BlockchainBala
 }
 
 /**
+ * ETH Sepolia 테스트넷 잔액 조회
+ */
+export async function getSepoliaBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch(INFURA_ENDPOINTS.sepolia, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getBalance',
+        params: [address, 'latest'],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sepolia 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`Sepolia API 오류: ${data.error.message}`);
+    }
+
+    const balanceWei = data.result;
+    const balanceEth = parseInt(balanceWei, 16) / Math.pow(10, 18);
+
+    return {
+      address,
+      symbol: 'ETH-SEPOLIA',
+      balance: balanceEth.toFixed(6),
+      decimals: 18,
+      network: 'sepolia'
+    };
+  } catch (error) {
+    console.error('Sepolia 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * ETH Goerli 테스트넷 잔액 조회
+ */
+export async function getGoerliBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch(INFURA_ENDPOINTS.goerli, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getBalance',
+        params: [address, 'latest'],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Goerli 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`Goerli API 오류: ${data.error.message}`);
+    }
+
+    const balanceWei = data.result;
+    const balanceEth = parseInt(balanceWei, 16) / Math.pow(10, 18);
+
+    return {
+      address,
+      symbol: 'ETH-GOERLI',
+      balance: balanceEth.toFixed(6),
+      decimals: 18,
+      network: 'goerli'
+    };
+  } catch (error) {
+    console.error('Goerli 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * Base 메인넷 잔액 조회
+ */
+export async function getBaseBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch(INFURA_ENDPOINTS.baseMainnet, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getBalance',
+        params: [address, 'latest'],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Base 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`Base API 오류: ${data.error.message}`);
+    }
+
+    const balanceWei = data.result;
+    const balanceEth = parseInt(balanceWei, 16) / Math.pow(10, 18);
+
+    return {
+      address,
+      symbol: 'BASE',
+      balance: balanceEth.toFixed(6),
+      decimals: 18,
+      network: 'base'
+    };
+  } catch (error) {
+    console.error('Base 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * Base Goerli 테스트넷 잔액 조회
+ */
+export async function getBaseGoerliBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch(INFURA_ENDPOINTS.baseGoerli, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getBalance',
+        params: [address, 'latest'],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Base Goerli 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`Base Goerli API 오류: ${data.error.message}`);
+    }
+
+    const balanceWei = data.result;
+    const balanceEth = parseInt(balanceWei, 16) / Math.pow(10, 18);
+
+    return {
+      address,
+      symbol: 'BASE-GOERLI',
+      balance: balanceEth.toFixed(6),
+      decimals: 18,
+      network: 'base-goerli'
+    };
+  } catch (error) {
+    console.error('Base Goerli 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * Base Sepolia 테스트넷 잔액 조회
+ */
+export async function getBaseSepoliaBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch(INFURA_ENDPOINTS.baseSepolia, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getBalance',
+        params: [address, 'latest'],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Base Sepolia 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`Base Sepolia API 오류: ${data.error.message}`);
+    }
+
+    const balanceWei = data.result;
+    const balanceEth = parseInt(balanceWei, 16) / Math.pow(10, 18);
+
+    return {
+      address,
+      symbol: 'BASE-SEPOLIA',
+      balance: balanceEth.toFixed(6),
+      decimals: 18,
+      network: 'base-sepolia'
+    };
+  } catch (error) {
+    console.error('Base Sepolia 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * Solana Devnet 잔액 조회
+ */
+export async function getSolanaDevnetBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch(INFURA_ENDPOINTS.solanaDevnet, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'getBalance',
+        params: [address],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`솔라나 Devnet 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`솔라나 Devnet API 오류: ${data.error.message}`);
+    }
+
+    const balanceLamports = data.result.value;
+    const balanceSol = balanceLamports / Math.pow(10, 9);
+
+    return {
+      address,
+      symbol: 'SOL-DEVNET',
+      balance: balanceSol.toFixed(6),
+      decimals: 9,
+      network: 'solana-devnet'
+    };
+  } catch (error) {
+    console.error('솔라나 Devnet 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * Solana Testnet 잔액 조회
+ */
+export async function getSolanaTestnetBalance(address: string): Promise<BlockchainBalance | null> {
+  try {
+    const response = await fetch(INFURA_ENDPOINTS.solanaTestnet, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'getBalance',
+        params: [address],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`솔라나 Testnet 잔액 조회 실패: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`솔라나 Testnet API 오류: ${data.error.message}`);
+    }
+
+    const balanceLamports = data.result.value;
+    const balanceSol = balanceLamports / Math.pow(10, 9);
+
+    return {
+      address,
+      symbol: 'SOL-TESTNET',
+      balance: balanceSol.toFixed(6),
+      decimals: 9,
+      network: 'solana-testnet'
+    };
+  } catch (error) {
+    console.error('솔라나 Testnet 잔액 조회 중 오류:', error);
+    return null;
+  }
+}
+
+/**
  * 심볼에 따른 블록체인 잔액 조회
  */
 export async function getBlockchainBalance(address: string, symbol: string): Promise<BlockchainBalance | null> {
   switch (symbol.toUpperCase()) {
     case 'ETH':
       return await getEthereumBalance(address);
-    case 'BTC':
-      return await getBitcoinBalance(address);
+    case 'ETH-SEPOLIA':
+      return await getSepoliaBalance(address);
+    case 'ETH-GOERLI':
+      return await getGoerliBalance(address);
+    case 'BASE':
+      return await getBaseBalance(address);
+    case 'BASE-GOERLI':
+      return await getBaseGoerliBalance(address);
+    case 'BASE-SEPOLIA':
+      return await getBaseSepoliaBalance(address);
     case 'SOL':
       return await getSolanaBalance(address);
+    case 'SOL-DEVNET':
+      return await getSolanaDevnetBalance(address);
+    case 'SOL-TESTNET':
+      return await getSolanaTestnetBalance(address);
+    case 'BTC':
+      return await getBitcoinBalance(address);
     case 'USDT':
       return await getUSDTBalance(address);
     case 'MATIC':

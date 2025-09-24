@@ -318,16 +318,14 @@ aws secretsmanager describe-secret --secret-id nest-wallet-prod-secrets
 **개발 환경** (`nest-wallet-dev-secrets`):
 ```json
 {
-  "NEXT_PUBLIC_API_URL": "https://dev-api.blockbit.com",
-  "NEXT_PUBLIC_API_BASE_URL": "https://dev-api.blockbit.com/api"
+  "GAS_COUPON_API_URL": "https://dev-api.blockbit.com"
 }
 ```
 
 **프로덕션 환경** (`nest-wallet-prod-secrets`):
 ```json
 {
-  "NEXT_PUBLIC_API_URL": "https://api.blockbit.com",
-  "NEXT_PUBLIC_API_BASE_URL": "https://api.blockbit.com/api"
+  "GAS_COUPON_API_URL": "https://api.blockbit.com"
 }
 ```
 

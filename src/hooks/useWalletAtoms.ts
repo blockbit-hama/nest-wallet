@@ -7,6 +7,7 @@ import {
   enabledAssetsAtom 
 } from '@/store/atoms';
 import { getWalletsFromStorage } from '@/lib/wallet-utils';
+import { ASSET_CONSTANTS } from '@/config/constants';
 
 // 지갑 리스트 관리 hook
 export const useWalletList = () => {
@@ -92,7 +93,17 @@ export const useEnabledAssets = () => {
         console.log('활성화된 자산 로드:', assetSymbols);
       } catch (error) {
         console.error('활성화된 자산 로드 실패:', error);
+        // 로드 실패 시 기본값 설정
+        setEnabledAssets(ASSET_CONSTANTS.DEFAULT_ENABLED_ASSETS);
       }
+    } else {
+      // 저장된 자산이 없으면 기본값 설정
+      console.log('저장된 자산 없음, 기본값 설정:', ASSET_CONSTANTS.DEFAULT_ENABLED_ASSETS);
+      setEnabledAssets(ASSET_CONSTANTS.DEFAULT_ENABLED_ASSETS);
+      
+      // 기본값을 localStorage에 저장
+      const defaultAssetsData = ASSET_CONSTANTS.DEFAULT_ENABLED_ASSETS.map(symbol => ({ symbol }));
+      localStorage.setItem('enabledAssets', JSON.stringify(defaultAssetsData));
     }
   };
 

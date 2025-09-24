@@ -41,7 +41,12 @@ export default function CouponSwapPage() {
       console.log('쿠폰 목록 로드 시작, masterAddress:', masterAddress);
       const response = await getCouponsByMasterAddress(masterAddress);
       console.log('쿠폰 목록 응답:', response);
-      setCouponList(response);
+      
+      if (response.success && response.data) {
+        setCouponList(response.data);
+      } else {
+        console.error('쿠폰 목록 로드 실패:', response.message);
+      }
     } catch (error) {
       console.error('쿠폰 목록 로드 실패:', error);
     }

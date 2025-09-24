@@ -16,16 +16,13 @@ const nextConfig: NextConfig = {
   },
   
   // 빌드 최적화 설정
-  experimental: {
-    // 서버 컴포넌트 최적화
-    serverComponentsExternalPackages: [],
-  },
+  serverExternalPackages: [],
   
   // 정적 내보내기 비활성화 (SSR 사용)
   trailingSlash: false,
   
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9001',
+    GAS_COUPON_API_URL: process.env.GAS_COUPON_API_URL || 'http://localhost:9001',
   },
   async headers() {
     return [
