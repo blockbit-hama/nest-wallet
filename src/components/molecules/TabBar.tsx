@@ -9,6 +9,14 @@ const tabList = [
       <rect x="18" y="13" width="4" height="2" rx="1" fill="currentColor"/>
     </svg>
   ) },
+  { key: "purchase", label: "구매", path: "/purchase", icon: (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="16" cy="16" r="14" stroke="currentColor" strokeWidth="2"/>
+      <path d="M12 16h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M16 12v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M20 8l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ) },
   { key: "action", label: "액션", path: "/action", icon: (
     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M8 12L16 4L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

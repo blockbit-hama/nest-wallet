@@ -45,7 +45,7 @@ export const useMasterAddress = (): UseMasterAddressReturn => {
     try {
       // EIP-55 Ethereum 주소 생성 (개인키는 로컬 저장)
       const wallet = ethers.Wallet.createRandom();
-      const checksumAddress = ethers.getAddress(wallet.address);
+      const checksumAddress = ethers.utils.getAddress(wallet.address);
 
       setMasterAddress(checksumAddress);
       setMasterPrivateKey(wallet.privateKey);

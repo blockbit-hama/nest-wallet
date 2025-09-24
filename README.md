@@ -1,8 +1,36 @@
 # Nest Wallet
 
-블록체인 지갑 애플리케이션
+블록체인 지갑 애플리케이션 - 암호화폐 구매 기능 포함
 
 ## 주요 기능
+
+### 💰 새로운 기능: 암호화폐 구매 (Purchase)
+
+dcent-purchase-backend와 통합된 암호화폐 구매 기능이 추가되었습니다.
+
+#### 구매 기능 특징
+
+1. **다중 프로바이더 지원**
+   - MoonPay, TopperPay 등 여러 결제 프로바이더 통합
+   - 자동 최적 견적 비교 및 추천
+   - 실시간 프로바이더 상태 모니터링
+
+2. **스마트 견적 시스템**
+   - 비용 우선 또는 속도 우선 선택 가능
+   - 수수료, 소요 시간, 환율 비교
+   - 최적화된 견적 추천 알고리즘
+
+3. **지원 암호화폐**
+   - Bitcoin (BTC)
+   - Ethereum (ETH)
+   - Tether (USDT)
+   - Solana (SOL)
+   - 기타 주요 코인들
+
+4. **안전한 거래**
+   - 지갑 주소 자동 연동
+   - 거래 상태 실시간 추적
+   - 안전한 결제 URL 제공
 
 ### 🔥 새로운 기능: 트랜잭션별 정확한 가스 추정
 
@@ -149,13 +177,45 @@ UI에서 주소와 금액을 입력하면 자동으로:
 
 ## 설치 및 실행
 
+### 기본 실행 (지갑 기능만)
+
 ```bash
 npm install
 npm run dev
 ```
 
+### 구매 기능 포함 실행
+
+```bash
+# 프론트엔드와 구매 API 동시 실행
+npm run dev:full
+```
+
+또는 개별 실행:
+
+```bash
+# Terminal 1: Nest Wallet Frontend
+npm run dev
+
+# Terminal 2: Purchase API Backend
+npm run purchase-api:dev
+```
+
+### 구매 API 테스트
+
+```bash
+npm run purchase-api:test
+```
+
 ## 환경 변수
 
 ```env
+# Blockchain APIs
 NEXT_PUBLIC_INFURA_API_KEY=your_infura_api_key
+
+# Purchase API (구매 기능용)
+PURCHASE_API_URL=http://localhost:9003
+
+# Gas Coupon API
+GAS_COUPON_API_URL=http://localhost:9001
 ```

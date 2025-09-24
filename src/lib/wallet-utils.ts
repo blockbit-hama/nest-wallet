@@ -162,7 +162,7 @@ export const createHDWallet = async (config: HDWalletConfig): Promise<WalletInfo
       throw new Error('마스터 키 생성에 실패했습니다.');
     }
     const masterEthWallet = Wallet.fromPrivateKey(masterKey.privateKey);
-    const masterAddress = ethers.getAddress(masterEthWallet.getAddressString());
+    const masterAddress = ethers.utils.getAddress(masterEthWallet.getAddressString());
     
     // 6. 각 코인별 주소와 개인키 생성
     const addresses: WalletInfo['addresses'] = {};

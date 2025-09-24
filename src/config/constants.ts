@@ -12,7 +12,18 @@ export const API_ENDPOINTS = {
   EXCHANGE_RATE: '/api/v1/exchange-rate',
   SPONSOR_TRANSACTION: '/api/v1/transaction/sponsor',
   TRANSACTION_STATUS: '/api/v1/transaction/status',
-  NONCE: '/api/v1/auth/nonce'
+  NONCE: '/api/v1/auth/nonce',
+  // Purchase API 엔드포인트 (백엔드 실제 경로에 맞게 수정)
+  PURCHASE_BASE_URL: process.env.PURCHASE_API_URL || 'http://localhost:3001',
+  PURCHASE: {
+    HEALTH: '/api/buy/v1/health',
+    CURRENCIES: '/api/buy/v1/currencies',
+    QUOTES: '/api/buy/v1/quotes',
+    QUOTES_PROVIDER: '/api/buy/v1/quotes', // 특정 프로바이더 견적 조회
+    TRANSACTIONS: '/api/buy/v1/transactions',
+    PROVIDERS_STATUS: '/api/buy/v1/providers/status'
+    // 사용자별 트랜잭션 조회와 관리자 엔드포인트는 백엔드에 없으므로 제거
+  }
 } as const;
 
 // 지갑 관련 상수
