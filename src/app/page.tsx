@@ -123,6 +123,18 @@ export default function Home() {
   const [balanceType, setBalanceType] = useState<'잔액' | 'NFT' | '쿠폰'>('잔액');
   const [selectedCouponId, setSelectedCouponId] = useState<string>("");
   const balanceOptions = ['잔액', 'NFT', '쿠폰'] as const;
+
+  // 컴포넌트 마운트 및 환경 정보 로깅
+  useEffect(() => {
+    console.log('🔵 [Home Page] 컴포넌트 마운트됨');
+    console.log('🔵 [Home Page] 환경 정보:', {
+      NODE_ENV: process.env.NODE_ENV,
+      GAS_COUPON_API_URL: process.env.GAS_COUPON_API_URL,
+      PURCHASE_API_URL: process.env.PURCHASE_API_URL,
+      windowLocation: typeof window !== 'undefined' ? window.location.href : 'SSR',
+      userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'SSR'
+    });
+  }, []);
   
   // useMasterAddress 훅 사용
   const { masterAddress } = useMasterAddress();
@@ -148,6 +160,29 @@ export default function Home() {
     enabledAssets,
     loadEnabledAssets
   } = useEnabledAssets();
+
+  // 지갑 및 자산 상태 변경 로깅
+  useEffect(() => {
+    console.log('📱 [Home Page] 지갑 상태 변경:', {
+      selectedWalletId,
+      selectedWallet: selectedWallet ? {
+        id: selectedWallet.id,
+        name: selectedWallet.name,
+        addressCount: Object.keys(selectedWallet.addresses).length
+      } : null,
+      walletListCount: walletList.length,
+      isLoading: isWalletListLoading
+    });
+  }, [selectedWallet, selectedWalletId, walletList.length, isWalletListLoading]);
+
+  // 활성화된 자산 상태 변경 로깅
+  useEffect(() => {
+    console.log('💎 [Home Page] 활성화된 자산 상태:', {
+      enabledAssets,
+      assetCount: enabledAssets.length,
+      symbols: enabledAssets
+    });
+  }, [enabledAssets]);
 
   // React Query hooks로 잔액 데이터 가져오기
   const btcBalance = useWalletBalance(
@@ -215,8 +250,11 @@ export default function Home() {
 
   // 총 달러 금액 계산 (활성화된 자산들의 합계)
   const calculateTotalUSD = () => {
-    if (!selectedWallet || !enabledAssets.length) return 0;
-    
+    if (!selectedWallet || !enabledAssets.length) {
+      console.log('💰 [Home Page] 총 USD 계산 건너뜀 - 지갑 또는 자산 없음');
+      return 0;
+    }
+
     let total = 0;
     
     // 활성화된 자산들의 USD 가치 합계
@@ -290,6 +328,11 @@ export default function Home() {
       total += solTestnetValue;
     }
     
+    console.log('💰 [Home Page] 총 USD 계산 완료:', {
+      total: total.toFixed(2),
+      enabledAssetsCount: enabledAssets.length
+    });
+
     return total;
   };
 
@@ -581,8 +624,12 @@ export default function Home() {
 
   // 쿠폰 목록 로드 함수
   const loadCoupons = async () => {
-    if (!masterAddress) return;
-    
+    if (!masterAddress) {
+      console.log('🎟️ [Home Page] 쿠폰 로드 건너뜀 - masterAddress 없음');
+      return;
+    }
+
+    console.log('🎟️ [Home Page] 쿠폰 목록 로드 시작:', { masterAddress });
     setIsLoadingCoupons(true);
     try {
       const response = await getCouponsByMasterAddress(masterAddress);
@@ -596,19 +643,23 @@ export default function Home() {
         }, 0) || 0;
         setTotalCouponAmount(total);
         
-        console.log('쿠폰 목록 로드 완료:', response.data.coupons);
-        console.log('총 쿠폰 금액:', total);
+        console.log('🎟️ [Home Page] 쿠폰 목록 로드 성공:', {
+          couponCount: response.data.coupons?.length || 0,
+          totalAmount: total,
+          coupons: response.data.coupons
+        });
       } else {
-        console.error('쿠폰 목록 로드 실패:', response.message);
+        console.error('🎟️ [Home Page] 쿠폰 목록 로드 실패:', response.message);
         setCouponList([]);
         setTotalCouponAmount(0);
       }
     } catch (error) {
-      console.error('쿠폰 목록 로드 실패:', error);
+      console.error('🎟️ [Home Page] 쿠폰 목록 로드 오류:', error);
       setCouponList([]);
       setTotalCouponAmount(0);
     } finally {
       setIsLoadingCoupons(false);
+      console.log('🎟️ [Home Page] 쿠폰 로딩 완료');
     }
   };
 
@@ -664,9 +715,15 @@ export default function Home() {
                     ]
               }
               onChange={(value) => {
+                console.log('👤 [Home Page] 지갑 선택 변경:', {
+                  selectedValue: value,
+                  isNewWallet: value === 'create-new'
+                });
                 if (value === 'create-new') {
+                  console.log('🔄 [Home Page] 새 지갑 생성 페이지로 이동');
                   router.push('/create-wallet');
                 } else {
+                  console.log('🔄 [Home Page] 지갑 변경:', value);
                   setSelectedWalletId(value);
                 }
               }}
@@ -728,7 +785,13 @@ export default function Home() {
           <CustomSelect
             value={balanceType}
             options={balanceOptions.map(opt => ({ value: opt, label: opt }))}
-            onChange={v => setBalanceType(v as typeof balanceType)}
+            onChange={(v) => {
+              console.log('🔄 [Home Page] 잔액 타입 변경:', {
+                from: balanceType,
+                to: v
+              });
+              setBalanceType(v as typeof balanceType);
+            }}
             width={120}
             height={40}
             fontSize={15}

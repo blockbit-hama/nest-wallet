@@ -11,6 +11,17 @@ export default function CouponSwapPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [couponList, setCouponList] = useState<GetCouponsResponse | null>(null);
+
+  // 컴포넌트 마운트 및 환경 정보 로깅
+  useEffect(() => {
+    console.log('🔵 [Coupon Swap Page] 컴포넌트 마운트됨');
+    console.log('🔵 [Coupon Swap Page] 환경 정보:', {
+      NODE_ENV: process.env.NODE_ENV,
+      GAS_COUPON_API_URL: process.env.GAS_COUPON_API_URL,
+      windowLocation: typeof window !== 'undefined' ? window.location.href : 'SSR',
+      userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'SSR'
+    });
+  }, []);
   
   // 바우처 생성 상태
   const [isCreatingVoucher, setIsCreatingVoucher] = useState(false);
@@ -28,49 +39,70 @@ export default function CouponSwapPage() {
   const [voucherCode, setVoucherCode] = useState("");
   const [isExchanging, setIsExchanging] = useState(false);
 
+  // masterAddress 변경 로깅 및 쿠폰 로드
   useEffect(() => {
+    console.log('👤 [Coupon Swap Page] masterAddress 변경:', {
+      masterAddress,
+      hasMasterAddress: !!masterAddress
+    });
     if (masterAddress) {
       loadCoupons();
     }
   }, [masterAddress]);
 
   const loadCoupons = async () => {
-    if (!masterAddress) return;
-    
+    if (!masterAddress) {
+      console.log('🎟️ [Coupon Swap Page] 쿠폰 로드 건너뜀 - masterAddress 없음');
+      return;
+    }
+
+    console.log('🎟️ [Coupon Swap Page] 쿠폰 목록 로드 시작:', { masterAddress });
+
     try {
-      console.log('쿠폰 목록 로드 시작, masterAddress:', masterAddress);
       const response = await getCouponsByMasterAddress(masterAddress);
-      console.log('쿠폰 목록 응답:', response);
-      
+      console.log('🎟️ [Coupon Swap Page] 쿠폰 목록 API 응답:', {
+        success: response.success,
+        message: response.message,
+        couponCount: response.data?.coupons?.length || 0,
+        data: response.data
+      });
+
       if (response.success && response.data) {
         setCouponList(response.data);
+        console.log('🎟️ [Coupon Swap Page] 쿠폰 목록 업데이트 완료');
       } else {
-        console.error('쿠폰 목록 로드 실패:', response.message);
+        console.error('🎟️ [Coupon Swap Page] 쿠폰 목록 로드 실패:', response.message);
       }
     } catch (error) {
-      console.error('쿠폰 목록 로드 실패:', error);
+      console.error('🎟️ [Coupon Swap Page] 쿠폰 목록 로드 오류:', error);
     }
   };
 
   const handleCreateVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    console.log('📝 [Coupon Swap Page] 바우처 생성 시작:', { createVoucherData });
+
     if (!createVoucherData.code.trim()) {
+      console.log('❌ [Coupon Swap Page] 바우처 코드 유효성 검사 실패');
       setError('바우처 코드를 입력해주세요.');
       return;
     }
 
     if (createVoucherData.amount <= 0) {
+      console.log('❌ [Coupon Swap Page] 바우처 금액 유효성 검사 실패');
       setError('바우처 금액은 0보다 커야 합니다.');
       return;
     }
 
     if (!createVoucherData.expireDate) {
+      console.log('❌ [Coupon Swap Page] 바우처 만료일 유효성 검사 실패');
       setError('바우처 만료일을 입력해주세요.');
       return;
     }
 
     if (!createVoucherData.couponExpireDate) {
+      console.log('❌ [Coupon Swap Page] 쿠폰 만료일 유효성 검사 실패');
       setError('쿠폰 만료일을 입력해주세요.');
       return;
     }
@@ -78,11 +110,18 @@ export default function CouponSwapPage() {
     setIsCreatingVoucher(true);
     setError(null);
     setSuccess(null);
+    console.log('🔄 [Coupon Swap Page] 바우처 생성 API 호출 중...');
 
     try {
       const response = await createVoucher(createVoucherData);
+      console.log('📝 [Coupon Swap Page] 바우처 생성 API 응답:', {
+        success: response.success,
+        message: response.message,
+        data: response.data
+      });
 
       if (response.success) {
+        console.log('✅ [Coupon Swap Page] 바우처 생성 성공');
         setSuccess(response.message);
         setCreateVoucherData({
           code: '',
@@ -94,16 +133,24 @@ export default function CouponSwapPage() {
         });
         setShowCreateForm(false);
       } else {
+        console.log('❌ [Coupon Swap Page] 바우처 생성 실패:', response.message);
         setError(response.message || '바우처 생성에 실패했습니다.');
       }
     } catch (err: any) {
+      console.error('🚨 [Coupon Swap Page] 바우처 생성 오류:', err);
       setError(err.message || '바우처 생성 중 오류가 발생했습니다.');
     } finally {
       setIsCreatingVoucher(false);
+      console.log('🏁 [Coupon Swap Page] 바우처 생성 프로세스 완료');
     }
   };
 
   const handleCreateVoucherChange = (field: keyof CreateVoucherRequest, value: any) => {
+    console.log('✏️ [Coupon Swap Page] 바우처 데이터 변경:', {
+      field,
+      value,
+      previousValue: createVoucherData[field]
+    });
     setCreateVoucherData(prev => ({
       ...prev,
       [field]: value
@@ -112,13 +159,21 @@ export default function CouponSwapPage() {
 
   const handleExchangeVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    console.log('🔄 [Coupon Swap Page] 바우처 교환 시작:', {
+      voucherCode,
+      masterAddress,
+      hasSignFunction: !!signMessageForCouponAuth
+    });
+
     if (!voucherCode.trim()) {
+      console.log('❌ [Coupon Swap Page] 바우처 코드 유효성 검사 실패');
       setError('바우처 코드를 입력해주세요.');
       return;
     }
 
     if (!masterAddress) {
+      console.log('❌ [Coupon Swap Page] masterAddress 없음');
       setError('지갑이 연결되지 않았습니다.');
       return;
     }
@@ -126,24 +181,35 @@ export default function CouponSwapPage() {
     setIsExchanging(true);
     setError(null);
     setSuccess(null);
+    console.log('🔄 [Coupon Swap Page] 바우처 교환 API 호출 중...');
 
     try {
       // 실제 서명 함수 사용 (useMasterAddress 훅에서 제공)
       const response = await registerCoupon(masterAddress, voucherCode, signMessageForCouponAuth);
+      console.log('🔄 [Coupon Swap Page] 바우처 교환 API 응답:', {
+        success: response.success,
+        message: response.message,
+        data: response.data
+      });
 
       if (response.success) {
+        console.log('✅ [Coupon Swap Page] 바우처 교환 성공');
         setSuccess(response.message);
         setVoucherCode('');
-        
+
         // 쿠폰 목록 새로고침
+        console.log('🔄 [Coupon Swap Page] 쿠폰 목록 새로고침 시작...');
         await loadCoupons();
       } else {
+        console.log('❌ [Coupon Swap Page] 바우처 교환 실패:', response.message);
         setError(response.message || '바우처 교환에 실패했습니다.');
       }
     } catch (err: any) {
+      console.error('🚨 [Coupon Swap Page] 바우처 교환 오류:', err);
       setError(err.message || '바우처 교환 중 오류가 발생했습니다.');
     } finally {
       setIsExchanging(false);
+      console.log('🏁 [Coupon Swap Page] 바우처 교환 프로세스 완료');
     }
   };
 
@@ -160,9 +226,15 @@ export default function CouponSwapPage() {
             바우처 추가
           </h3>
           <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
+            onClick={() => {
+              console.log('🔄 [Coupon Swap Page] 바우처 생성 폼 토글:', {
+                from: showCreateForm,
+                to: !showCreateForm
+              });
+              setShowCreateForm(!showCreateForm);
+            }}
             className="px-4 py-2 rounded-lg text-sm font-bold cursor-pointer"
-            style={{ 
+            style={{
               background: showCreateForm ? '#EB5757' : '#F2A003',
               color: '#14151A'
             }}
@@ -310,7 +382,13 @@ export default function CouponSwapPage() {
             <input
               type="text"
               value={voucherCode}
-              onChange={e => setVoucherCode(e.target.value)}
+              onChange={(e) => {
+                console.log('✏️ [Coupon Swap Page] 바우처 코드 입력:', {
+                  value: e.target.value,
+                  length: e.target.value.length
+                });
+                setVoucherCode(e.target.value);
+              }}
               placeholder="바우처 코드를 입력하세요 (예: V-DEV-VOUCHER-USD-1)"
               className="w-full px-4 py-3 rounded-lg border text-white text-base mb-3 outline-none transition-all duration-200 focus:border-orange-400"
               style={{ 

@@ -47,6 +47,17 @@ export default function AddAssetsPage() {
     addressIndex: 0
   });
 
+  // 컴포넌트 마운트 및 환경 정보 로깅
+  useEffect(() => {
+    console.log('🔵 [Add Assets Page] 컴포넌트 마운트됨');
+    console.log('🔵 [Add Assets Page] 환경 정보:', {
+      NODE_ENV: process.env.NODE_ENV,
+      windowLocation: typeof window !== 'undefined' ? window.location.href : 'SSR',
+      userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'SSR',
+      supportedAssetsCount: supportedAssets.length
+    });
+  }, []);
+
   // 새로운 atoms hooks 사용
   const { updateEnabledAssets, loadEnabledAssets } = useEnabledAssets();
   const { generateNewAssetKey } = useWallet();
@@ -72,12 +83,20 @@ export default function AddAssetsPage() {
 
   // 실시간 가격 정보 로드
   const loadAssetPrices = async () => {
+    console.log('💰 [Add Assets Page] 자산 가격 정보 로드 시작');
+
     // 메인넷 자산들만 가격 정보 조회 (테스트넷은 가격 정보 없음)
     const mainnetSymbols = supportedAssets
       .filter(asset => !asset.isTestnet)
       .map(asset => asset.symbol);
-    
+
+    console.log('💰 [Add Assets Page] 메인넷 자산들:', mainnetSymbols);
+
     const cryptoPrices = await getCryptoPrices(mainnetSymbols);
+    console.log('💰 [Add Assets Page] 가격 정보 조회 완료:', {
+      requestedCount: mainnetSymbols.length,
+      receivedCount: cryptoPrices.length
+    });
 
     // 가격 정보를 assets 배열에 매핑 (isEnabled는 기존 상태 유지)
     const assetsWithPrices = supportedAssets.map(asset => {
@@ -99,6 +118,7 @@ export default function AddAssetsPage() {
     });
 
     setAssets(assetsWithPrices);
+    console.log('💰 [Add Assets Page] 자산 목록 설정 완료:', assetsWithPrices.length);
   };
 
   // 컴포넌트 마운트 시 가격 정보 로드 및 저장된 자산 설정 복원
@@ -106,34 +126,40 @@ export default function AddAssetsPage() {
     let isMounted = true;
     
     const initializeAssets = async () => {
+      console.log('🚀 [Add Assets Page] 자산 초기화 시작');
       try {
         setIsLoading(true);
         await loadAssetPrices();
-        
+
         // 저장된 활성화된 자산 설정 로드
         const savedEnabledAssets = localStorage.getItem('enabledAssets');
+        console.log('💾 [Add Assets Page] 저장된 활성화 자산 확인:', !!savedEnabledAssets);
+
         if (savedEnabledAssets && isMounted) {
           try {
             const enabledAssets = JSON.parse(savedEnabledAssets);
             const enabledSymbols = enabledAssets.map((asset: any) => asset.symbol);
-            
-            setAssets(prevAssets => 
+
+            console.log('💾 [Add Assets Page] 활성화된 자산 심볼들:', enabledSymbols);
+
+            setAssets(prevAssets =>
               prevAssets.map(asset => ({
                 ...asset,
                 isEnabled: enabledSymbols.includes(asset.symbol)
               }))
             );
-            
-            console.log('저장된 활성화된 자산 로드:', enabledSymbols);
+
+            console.log('✅ [Add Assets Page] 저장된 활성화된 자산 적용 완료');
           } catch (error) {
-            console.error('활성화된 자산 로드 실패:', error);
+            console.error('❌ [Add Assets Page] 활성화된 자산 로드 실패:', error);
           }
         }
       } catch (error) {
-        console.error('자산 초기화 실패:', error);
+        console.error('❌ [Add Assets Page] 자산 초기화 실패:', error);
       } finally {
         if (isMounted) {
           setIsLoading(false);
+          console.log('🏁 [Add Assets Page] 자산 초기화 완료');
         }
       }
     };
@@ -147,19 +173,31 @@ export default function AddAssetsPage() {
 
   // 토글 버튼 클릭 핸들러
   const handleToggle = (assetId: string) => {
-    setAssets(prevAssets => 
-      prevAssets.map(asset => 
-        asset.id === assetId 
-          ? { ...asset, isEnabled: !asset.isEnabled }
-          : asset
-      )
+    console.log('🔄 [Add Assets Page] 자산 토글:', { assetId });
+
+    setAssets(prevAssets =>
+      prevAssets.map(asset => {
+        if (asset.id === assetId) {
+          const newEnabled = !asset.isEnabled;
+          console.log('🔄 [Add Assets Page] 자산 상태 변경:', {
+            symbol: asset.symbol,
+            from: asset.isEnabled,
+            to: newEnabled
+          });
+          return { ...asset, isEnabled: newEnabled };
+        }
+        return asset;
+      })
     );
   };
 
   // 사용자 정의 자산 추가
   const handleAddCustomAsset = async () => {
+    console.log('➕ [Add Assets Page] 사용자 정의 자산 추가 시작:', { customAsset });
+
     try {
       if (!customAsset.symbol || !customAsset.name) {
+        console.log('❌ [Add Assets Page] 유효성 검사 실패 - 심볼 또는 이름 누락');
         alert('심볼과 이름을 입력해주세요.');
         return;
       }
@@ -171,7 +209,7 @@ export default function AddAssetsPage() {
         customAsset.addressIndex
       );
 
-      console.log('사용자 정의 자산 추가:', {
+      console.log('➕ [Add Assets Page] 파생 경로 생성:', {
         symbol: customAsset.symbol,
         derivationPath
       });
@@ -180,7 +218,7 @@ export default function AddAssetsPage() {
       const newAssetKey = await generateNewAssetKey(customAsset.symbol, derivationPath);
       
       if (newAssetKey) {
-        console.log('사용자 정의 자산 생성 완료:', newAssetKey);
+        console.log('✅ [Add Assets Page] 사용자 정의 자산 생성 완료:', newAssetKey);
         
         // 활성화된 자산 목록에 추가
         const newAsset: Asset = {
@@ -206,20 +244,28 @@ export default function AddAssetsPage() {
           addressIndex: 0
         });
 
+        console.log('✅ [Add Assets Page] 사용자 정의 자산 UI 업데이트 완료');
         alert(`${customAsset.symbol} 자산이 추가되었습니다.`);
       }
     } catch (error) {
-      console.error('사용자 정의 자산 추가 실패:', error);
+      console.error('❌ [Add Assets Page] 사용자 정의 자산 추가 실패:', error);
       alert('자산 추가에 실패했습니다.');
     }
   };
 
   // 저장 함수
   const handleSave = async () => {
+    console.log('💾 [Add Assets Page] 자산 설정 저장 시작');
+
     try {
       // 활성화된 자산 정보를 atoms로 업데이트
       const enabledAssets = assets.filter(asset => asset.isEnabled);
       const enabledSymbols = enabledAssets.map(asset => asset.symbol);
+
+      console.log('💾 [Add Assets Page] 활성화된 자산들:', {
+        count: enabledAssets.length,
+        symbols: enabledSymbols
+      });
       
       // 현재 활성화된 자산과 이전 활성화된 자산 비교
       const savedEnabledAssets = localStorage.getItem('enabledAssets');

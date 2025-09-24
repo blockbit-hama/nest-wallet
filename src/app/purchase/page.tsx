@@ -1,23 +1,30 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Button, Card, Input } from "../../components/ui";
+import { Button, Card, Input, Select } from "../../components/ui";
 import { useMasterAddress } from "../../hooks/wallet/useMasterAddress";
 import { usePurchaseQuotes, usePurchaseCurrencies, usePurchaseProviderStatus, usePurchaseTransaction } from "../../hooks/queries/usePurchaseQueries";
 
-// 구매 가능한 코인 아이콘들
-const CoinIcons = {
-  BTC: () => (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm">₿</div>
-  ),
-  ETH: () => (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">Ξ</div>
-  ),
-  USDT: () => (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">$</div>
-  ),
-  SOL: () => (
-    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-500 flex items-center justify-center text-white font-bold text-sm">◎</div>
-  )
+// 가상화폐별 아이콘 생성 함수
+const createCoinIcon = (symbol: string) => {
+  const iconMap: Record<string, { gradient: string; symbol: string }> = {
+    BTC: { gradient: "from-yellow-400 to-orange-500", symbol: "₿" },
+    ETH: { gradient: "from-blue-400 to-indigo-500", symbol: "Ξ" },
+    USDT: { gradient: "from-green-400 to-emerald-500", symbol: "$" },
+    SOL: { gradient: "from-purple-400 to-pink-500", symbol: "◎" },
+    ADA: { gradient: "from-blue-500 to-cyan-500", symbol: "A" },
+    DOT: { gradient: "from-pink-500 to-red-500", symbol: "D" },
+    MATIC: { gradient: "from-purple-500 to-indigo-600", symbol: "M" },
+    LINK: { gradient: "from-blue-600 to-indigo-700", symbol: "L" },
+    // 기본 스타일
+    DEFAULT: { gradient: "from-gray-400 to-gray-600", symbol: symbol.charAt(0) }
+  };
+
+  const config = iconMap[symbol] || iconMap.DEFAULT;
+  return (
+    <div className={`w-6 h-6 rounded-full bg-gradient-to-r ${config.gradient} flex items-center justify-center text-white font-bold text-xs`}>
+      {config.symbol}
+    </div>
+  );
 };
 
 const PurchaseIcon = () => (
@@ -31,7 +38,7 @@ const PurchaseIcon = () => (
 
 export default function PurchasePage() {
   const masterAddress = useMasterAddress();
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('ETH');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('BTC');
   const [amount, setAmount] = useState<string>('100');
   const [fiatCurrency] = useState<string>('USD');
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
@@ -67,7 +74,7 @@ export default function PurchasePage() {
     error: providerStatusError
   } = usePurchaseProviderStatus();
 
-  // Currencies 상태 변경 로깅
+  // Currencies 상태 변경 로깅 및 초기 화폐 설정
   useEffect(() => {
     if (currenciesLoading) {
       console.log('🟡 [Purchase API] Loading currencies...');
@@ -75,8 +82,16 @@ export default function PurchasePage() {
       console.error('🔴 [Purchase API] Currencies error:', currenciesError);
     } else if (currencies) {
       console.log('🟢 [Purchase API] Currencies loaded:', currencies);
+
+      // 현재 선택된 화폐가 지원되지 않으면 BTC를 기본값으로 설정
+      const availableCurrencies = Object.keys(currencies);
+      if (availableCurrencies.length > 0 && !availableCurrencies.includes(selectedCurrency)) {
+        const defaultCurrency = availableCurrencies.includes('BTC') ? 'BTC' : availableCurrencies[0];
+        console.log(`🟦 [Auto Select] ${selectedCurrency} not available, switching to ${defaultCurrency}`);
+        setSelectedCurrency(defaultCurrency);
+      }
     }
-  }, [currencies, currenciesLoading, currenciesError]);
+  }, [currencies, currenciesLoading, currenciesError, selectedCurrency]);
 
   // Provider Status 상태 변경 로깅
   useEffect(() => {
@@ -306,25 +321,84 @@ export default function PurchasePage() {
             <Card className="bg-[#23242A] border-gray-700 mb-4">
               <div className="p-4">
                 <h3 className="text-sm font-medium text-gray-400 mb-3">구매할 암호화폐</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(CoinIcons).map(([coin, Icon]) => (
-                    <button
-                      key={coin}
-                      onClick={() => {
-                        console.log('🟦 [User Action] Currency selected:', coin);
-                        setSelectedCurrency(coin);
+
+                {currenciesLoading ? (
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <div className="animate-spin w-4 h-4 border-2 border-gray-600 border-t-gray-400 rounded-full"></div>
+                    <span className="text-sm">가상화폐 목록 로딩 중...</span>
+                  </div>
+                ) : currenciesError ? (
+                  <div className="p-3 bg-red-600/20 border border-red-600/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <span className="text-red-400 mt-0.5">❌</span>
+                      <div className="text-sm">
+                        <p className="text-red-300 font-medium">가상화폐 목록을 불러올 수 없습니다</p>
+                        <p className="text-red-200/80 text-xs mt-1">
+                          네트워크 연결을 확인하고 다시 시도해주세요.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : currencies && Object.keys(currencies).length > 0 ? (
+                  <>
+                    {/* 인기 화폐 빠른 선택 */}
+                    <div className="flex gap-2 mb-3">
+                      {['BTC', 'ETH'].map((symbol) => {
+                        const isSelected = selectedCurrency === symbol;
+                        // 임시로 항상 활성화 (백엔드 API 분석 후 수정 예정)
+                        const isAvailable = true; // currencies[symbol] 대신 임시 사용
+
+                        return (
+                          <button
+                            key={symbol}
+                            onClick={() => {
+                              console.log('🟦 [User Action] Quick select currency:', symbol);
+                              setSelectedCurrency(symbol);
+                            }}
+                            className={`flex-1 p-3 rounded-lg border-2 flex items-center justify-center gap-2 transition-colors ${
+                              isSelected
+                                ? 'border-[#F2A003] bg-[#F2A003]/10 text-[#F2A003]'
+                                : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 text-white'
+                            }`}
+                          >
+                            {createCoinIcon(symbol)}
+                            <span className="font-medium text-sm">{symbol}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* 전체 화폐 선택 */}
+                    <div className="text-xs text-gray-400 mb-2">또는 다른 가상화폐 선택:</div>
+                    <Select
+                      options={Object.entries(currencies).map(([symbol, currency]) => ({
+                        value: symbol,
+                        label: `${currency.name || currency.symbol || symbol} (${symbol})`,
+                        icon: createCoinIcon(symbol),
+                        subtitle: currency.providers ? `${Object.keys(currency.providers).length}개 프로바이더 지원` : '가능'
+                      }))}
+                      value={selectedCurrency}
+                      onChange={(value) => {
+                        console.log('🟦 [User Action] Currency selected from dropdown:', value);
+                        setSelectedCurrency(value);
                       }}
-                      className={`p-3 rounded-lg border-2 flex items-center gap-3 transition-colors ${
-                        selectedCurrency === coin
-                          ? 'border-[#F2A003] bg-[#F2A003]/10'
-                          : 'border-gray-600 bg-gray-700/50 hover:border-gray-500'
-                      }`}
-                    >
-                      <Icon />
-                      <span className="font-medium">{coin}</span>
-                    </button>
-                  ))}
-                </div>
+                      placeholder="가상화폐를 선택하세요"
+                      className="w-full"
+                    />
+                  </>
+                ) : (
+                  <div className="p-3 bg-gray-600/20 border border-gray-600/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400 mt-0.5">ℹ️</span>
+                      <div className="text-sm">
+                        <p className="text-gray-300 font-medium">사용 가능한 가상화폐가 없습니다</p>
+                        <p className="text-gray-400 text-xs mt-1">
+                          공급자에서 지원하는 가상화폐가 없습니다.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
 

@@ -13,7 +13,18 @@ interface CouponTransferStep1Props {
 
 export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
   const { masterAddress } = useMasterAddress();
-  
+
+  // 컴포넌트 마운트 및 환경 정보 로깅
+  useEffect(() => {
+    console.log('🔵 [Coupon Transfer Step1] 컴포넌트 마운트됨');
+    console.log('🔵 [Coupon Transfer Step1] 환경 정보:', {
+      NODE_ENV: process.env.NODE_ENV,
+      GAS_COUPON_API_URL: process.env.GAS_COUPON_API_URL,
+      windowLocation: typeof window !== 'undefined' ? window.location.href : 'SSR',
+      userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'SSR'
+    });
+  }, []);
+
   const [selectedFromAddress, setSelectedFromAddress] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
@@ -49,18 +60,29 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
   // 선택된 주소가 변경될 때 통화 자동 설정
   useEffect(() => {
     if (selectedFromAddress) {
+      let newCurrency = "";
       if (selectedFromAddress.includes('ETH')) {
-        setSelectedCurrency("ETHEREUM");
+        newCurrency = "ETHEREUM";
       } else if (selectedFromAddress === 'BTC') {
-        setSelectedCurrency("BITCOIN");
+        newCurrency = "BITCOIN";
       } else if (selectedFromAddress === 'MATIC') {
-        setSelectedCurrency("MATIC");
+        newCurrency = "MATIC";
       } else if (selectedFromAddress === 'BSC') {
-        setSelectedCurrency("BSC");
+        newCurrency = "BSC";
       } else if (selectedFromAddress === 'AVAX') {
-        setSelectedCurrency("AVAX");
+        newCurrency = "AVAX";
       } else if (selectedFromAddress === 'SOL') {
-        setSelectedCurrency("SOLANA");
+        newCurrency = "SOLANA";
+      }
+
+      console.log('💰 [Coupon Transfer Step1] 주소 선택에 따른 통화 변경:', {
+        selectedFromAddress,
+        oldCurrency: selectedCurrency,
+        newCurrency
+      });
+
+      if (newCurrency) {
+        setSelectedCurrency(newCurrency);
       }
     }
   }, [selectedFromAddress]);
@@ -87,6 +109,10 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
 
   // masterAddress가 변경될 때마다 쿠폰 목록 조회
   useEffect(() => {
+    console.log('👤 [Coupon Transfer Step1] masterAddress 변경:', {
+      masterAddress,
+      hasMasterAddress: !!masterAddress
+    });
     if (masterAddress) {
       fetchCoupons();
     }
@@ -150,36 +176,54 @@ export function CouponTransferStep1({ onComplete }: CouponTransferStep1Props) {
   }, [transferAmount, exchangeRate]);
 
   const fetchCoupons = async () => {
-    if (!masterAddress) return;
-    
+    if (!masterAddress) {
+      console.log('🎟️ [Coupon Transfer Step1] 쿠폰 조회 건너뜀 - masterAddress 없음');
+      return;
+    }
+
+    console.log('🎟️ [Coupon Transfer Step1] 쿠폰 목록 조회 시작:', { masterAddress });
+
     try {
       setLoading(true);
       const response = await getCouponsByMasterAddress(masterAddress);
-      
+
+      console.log('🎟️ [Coupon Transfer Step1] 쿠폰 목록 API 응답:', {
+        success: response.success,
+        message: response.message,
+        couponCount: response.data?.coupons?.length || 0,
+        data: response.data
+      });
+
       if (response.success && response.data) {
         setCoupons(response.data.coupons || []);
+        console.log('🎟️ [Coupon Transfer Step1] 쿠폰 목록 설정 완료');
       } else {
-        console.error('쿠폰 목록 조회 실패:', response.message);
+        console.error('🎟️ [Coupon Transfer Step1] 쿠폰 목록 조회 실패:', response.message);
         setCoupons([]);
       }
     } catch (error) {
-      console.error('쿠폰 목록 조회 실패:', error);
+      console.error('🎟️ [Coupon Transfer Step1] 쿠폰 목록 조회 오류:', error);
       setCoupons([]);
     } finally {
       setLoading(false);
+      console.log('🎟️ [Coupon Transfer Step1] 쿠폰 조회 로딩 완료');
     }
   };
 
   const fetchExchangeRate = async () => {
     try {
-      console.log('환율 조회 시작, 통화:', selectedCurrency);
+      console.log('💱 [Coupon Transfer Step1] 환율 조회 시작:', { selectedCurrency });
       const normalizedCurrency = normalizeCurrencyId(selectedCurrency);
-      console.log('정규화된 통화 ID:', normalizedCurrency);
+      console.log('💱 [Coupon Transfer Step1] 정규화된 통화 ID:', normalizedCurrency);
       const rate = await getExchangeRate(normalizedCurrency);
-      console.log('조회된 환율:', rate);
+      console.log('💱 [Coupon Transfer Step1] 조회된 환율:', {
+        currency: selectedCurrency,
+        normalizedCurrency,
+        rate
+      });
       setExchangeRate(rate);
     } catch (error) {
-      console.error('환율 조회 실패:', error);
+      console.error('💱 [Coupon Transfer Step1] 환율 조회 실패:', error);
       setExchangeRate(1.0);
     }
   };
