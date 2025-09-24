@@ -38,16 +38,71 @@ export default function PurchasePage() {
   const [step, setStep] = useState<'quote' | 'confirm' | 'processing' | 'complete'>('quote');
   const [transactionId, setTransactionId] = useState<string | null>(null);
 
+  // 페이지 로드 시 로깅
+  useEffect(() => {
+    console.log('🔵 [Purchase Page] Component mounted');
+    console.log('🔵 [Purchase Page] Environment:', {
+      NODE_ENV: process.env.NODE_ENV,
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+      windowLocation: window.location.href,
+      userAgent: navigator.userAgent
+    });
+    console.log('🔵 [Purchase Page] Master Address:', masterAddress);
+    console.log('🔵 [Purchase Page] Initial State:', {
+      selectedCurrency,
+      amount,
+      fiatCurrency,
+      step
+    });
+    console.log('🔵 [Purchase Page] API Endpoints:', {
+      PURCHASE_BASE_URL: process.env.PURCHASE_API_URL || 'http://localhost:3000'
+    });
+  }, []);
+
   // API 쿼리들
-  const { data: currencies, isLoading: currenciesLoading } = usePurchaseCurrencies();
+  const { data: currencies, isLoading: currenciesLoading, error: currenciesError } = usePurchaseCurrencies();
   const {
     data: providerStatus,
     isLoading: providerStatusLoading,
     error: providerStatusError
   } = usePurchaseProviderStatus();
+
+  // Currencies 상태 변경 로깅
+  useEffect(() => {
+    if (currenciesLoading) {
+      console.log('🟡 [Purchase API] Loading currencies...');
+    } else if (currenciesError) {
+      console.error('🔴 [Purchase API] Currencies error:', currenciesError);
+    } else if (currencies) {
+      console.log('🟢 [Purchase API] Currencies loaded:', currencies);
+    }
+  }, [currencies, currenciesLoading, currenciesError]);
+
+  // Provider Status 상태 변경 로깅
+  useEffect(() => {
+    if (providerStatusLoading) {
+      console.log('🟡 [Purchase API] Loading provider status...');
+    } else if (providerStatusError) {
+      console.error('🔴 [Purchase API] Provider status error:', providerStatusError);
+    } else if (providerStatus) {
+      console.log('🟢 [Purchase API] Provider status loaded:', providerStatus);
+
+      // 각 프로바이더 상태 상세 로깅
+      Object.entries(providerStatus.providers || {}).forEach(([provider, status]) => {
+        const statusInfo = status as any;
+        console.log(`📊 [Provider ${provider.toUpperCase()}]`, {
+          available: statusInfo.available,
+          lastChecked: statusInfo.lastChecked,
+          error: statusInfo.error
+        });
+      });
+    }
+  }, [providerStatus, providerStatusLoading, providerStatusError]);
+
   const {
     data: quotes,
     isLoading: quotesLoading,
+    error: quotesError,
     refetch: refetchQuotes
   } = usePurchaseQuotes(
     selectedCurrency,
@@ -56,39 +111,108 @@ export default function PurchasePage() {
     { enabled: false }
   );
 
+  // Quotes 상태 변경 로깅
+  useEffect(() => {
+    if (quotesLoading) {
+      console.log('🟡 [Purchase API] Loading quotes...');
+    } else if (quotesError) {
+      console.error('🔴 [Purchase API] Quotes error:', quotesError);
+    } else if (quotes) {
+      console.log('🟢 [Purchase API] Quotes loaded:', quotes);
+    }
+  }, [quotes, quotesLoading, quotesError]);
+
+  // 사용자 입력 변경 로깅
+  useEffect(() => {
+    console.log('🟦 [User Input] Currency changed:', selectedCurrency);
+  }, [selectedCurrency]);
+
+  useEffect(() => {
+    console.log('🟦 [User Input] Amount changed:', amount);
+  }, [amount]);
+
+  useEffect(() => {
+    console.log('🟦 [State] Step changed:', step);
+  }, [step]);
+
+  // Master Address 변경 로깅
+  useEffect(() => {
+    console.log('🔵 [Wallet] Master Address updated:', masterAddress?.masterAddress);
+  }, [masterAddress]);
+
   const createTransactionMutation = usePurchaseTransaction();
 
   // 견적 조회
   const handleGetQuotes = async () => {
-    if (!amount || parseFloat(amount) <= 0) return;
-    await refetchQuotes();
+    console.log('🟦 [User Action] Get quotes button clicked');
+    console.log('🟦 [User Action] Quote request params:', {
+      selectedCurrency,
+      amount,
+      fiatCurrency,
+      masterAddress: masterAddress?.masterAddress
+    });
+
+    if (!amount || parseFloat(amount) <= 0) {
+      console.warn('⚠️ [Validation] Invalid amount:', amount);
+      return;
+    }
+
+    console.log('🟡 [Purchase API] Fetching quotes...');
+    try {
+      const result = await refetchQuotes();
+      console.log('🟢 [Purchase API] Quotes fetched:', result.data);
+    } catch (error) {
+      console.error('🔴 [Purchase API] Quote fetch error:', error);
+    }
   };
 
   // 거래 생성
   const handleCreateTransaction = async (providerId: string) => {
-    if (!masterAddress || !amount) return;
+    console.log('🟦 [User Action] Create transaction clicked');
+    console.log('🟦 [User Action] Transaction params:', {
+      providerId,
+      selectedCurrency,
+      amount,
+      masterAddress: masterAddress?.masterAddress
+    });
+
+    if (!masterAddress || !amount) {
+      console.warn('⚠️ [Validation] Missing required data:', {
+        masterAddress: !!masterAddress,
+        amount: !!amount
+      });
+      return;
+    }
 
     try {
+      console.log('🟡 [Transaction] Setting step to processing...');
       setStep('processing');
-      const result = await createTransactionMutation.mutateAsync({
+
+      const transactionRequest = {
         providerId,
         currency: selectedCurrency,
         amount: parseFloat(amount),
-        userWalletAddress: masterAddress,
-        userEmail: 'user@example.com', // 실제로는 사용자 입력 받아야 함
+        userWalletAddress: masterAddress.masterAddress,
+        userEmail: 'user@example.com',
         returnUrl: `${window.location.origin}/purchase/result`,
         webhookUrl: `${process.env.NEXT_PUBLIC_API_URL || ''}/webhook/purchase`
-      });
+      };
+
+      console.log('🟡 [Purchase API] Creating transaction:', transactionRequest);
+      const result = await createTransactionMutation.mutateAsync(transactionRequest);
+      console.log('🟢 [Purchase API] Transaction created:', result);
 
       setTransactionId(result.transactionId);
       setStep('complete');
+      console.log('🟢 [Transaction] Transaction completed, ID:', result.transactionId);
 
-      // 실제 결제 URL로 리다이렉트 (여기서는 시뮬레이션)
+      // 실제 결제 URL로 리다이렉트
       if (result.paymentUrl) {
+        console.log('🔗 [Redirect] Opening payment URL:', result.paymentUrl);
         window.open(result.paymentUrl, '_blank');
       }
     } catch (error) {
-      console.error('Transaction creation failed:', error);
+      console.error('🔴 [Transaction] Transaction creation failed:', error);
       setStep('quote');
     }
   };
@@ -186,7 +310,10 @@ export default function PurchasePage() {
                   {Object.entries(CoinIcons).map(([coin, Icon]) => (
                     <button
                       key={coin}
-                      onClick={() => setSelectedCurrency(coin)}
+                      onClick={() => {
+                        console.log('🟦 [User Action] Currency selected:', coin);
+                        setSelectedCurrency(coin);
+                      }}
                       className={`p-3 rounded-lg border-2 flex items-center gap-3 transition-colors ${
                         selectedCurrency === coin
                           ? 'border-[#F2A003] bg-[#F2A003]/10'
@@ -208,7 +335,10 @@ export default function PurchasePage() {
                 <Input
                   type="number"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    console.log('🟦 [User Action] Amount input changed:', e.target.value);
+                    setAmount(e.target.value);
+                  }}
                   placeholder="구매할 금액을 입력하세요"
                   className="w-full"
                   min="1"
@@ -218,7 +348,10 @@ export default function PurchasePage() {
                   {[50, 100, 200, 500].map(preset => (
                     <button
                       key={preset}
-                      onClick={() => setAmount(preset.toString())}
+                      onClick={() => {
+                        console.log('🟦 [User Action] Preset amount selected:', preset);
+                        setAmount(preset.toString());
+                      }}
                       className="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 transition-colors"
                     >
                       ${preset}
