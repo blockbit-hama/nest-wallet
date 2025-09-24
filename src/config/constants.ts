@@ -14,7 +14,7 @@ export const API_ENDPOINTS = {
   TRANSACTION_STATUS: '/api/v1/transaction/status',
   NONCE: '/api/v1/auth/nonce',
   // Purchase API 엔드포인트 (백엔드 실제 경로에 맞게 수정)
-  PURCHASE_BASE_URL: process.env.PURCHASE_API_URL || 'http://localhost:3001',
+  PURCHASE_BASE_URL: process.env.PURCHASE_API_URL || 'http://localhost:3000',
   PURCHASE: {
     HEALTH: '/api/buy/v1/health',
     CURRENCIES: '/api/buy/v1/currencies',
