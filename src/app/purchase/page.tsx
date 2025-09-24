@@ -40,7 +40,11 @@ export default function PurchasePage() {
 
   // API 쿼리들
   const { data: currencies, isLoading: currenciesLoading } = usePurchaseCurrencies();
-  const { data: providerStatus } = usePurchaseProviderStatus();
+  const {
+    data: providerStatus,
+    isLoading: providerStatusLoading,
+    error: providerStatusError
+  } = usePurchaseProviderStatus();
   const {
     data: quotes,
     isLoading: quotesLoading,
@@ -113,22 +117,64 @@ export default function PurchasePage() {
         </div>
 
         {/* 프로바이더 상태 */}
-        {providerStatus && (
-          <Card className="bg-[#23242A] border-gray-700 mb-4">
-            <div className="p-4">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">결제 프로바이더 상태</h3>
-              <div className="flex gap-2">
-                {Object.entries(providerStatus.providers || {}).map(([provider, status]: [string, any]) => (
-                  <div key={provider} className={`px-2 py-1 rounded text-xs ${
-                    status.available ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                  }`}>
-                    {provider.toUpperCase()}: {status.available ? '사용가능' : '사용불가'}
-                  </div>
-                ))}
+        <Card className="bg-[#23242A] border-gray-700 mb-4">
+          <div className="p-4">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">결제 프로바이더 상태</h3>
+
+            {providerStatusLoading && (
+              <div className="flex items-center gap-2 text-gray-400">
+                <div className="animate-spin w-4 h-4 border-2 border-gray-600 border-t-gray-400 rounded-full"></div>
+                <span className="text-sm">상태 확인 중...</span>
               </div>
-            </div>
-          </Card>
-        )}
+            )}
+
+            {providerStatusError && (
+              <div className="p-3 bg-red-600/20 border border-red-600/30 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-400 mt-0.5">❌</span>
+                  <div className="text-sm">
+                    <p className="text-red-300 font-medium">프로바이더 상태를 확인할 수 없습니다</p>
+                    <p className="text-red-200/80 text-xs mt-1">
+                      구매 서비스에 연결할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해주세요.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {providerStatus && !providerStatusLoading && !providerStatusError && (
+              <>
+                <div className="flex gap-2 flex-wrap">
+                  {Object.entries(providerStatus.providers || {}).map(([provider, status]: [string, any]) => (
+                    <div key={provider} className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${
+                      status.available ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${
+                        status.available ? 'bg-green-300' : 'bg-red-300'
+                      }`}></span>
+                      {provider.toUpperCase()}: {status.available ? '사용가능' : '사용불가'}
+                    </div>
+                  ))}
+                </div>
+                {/* 모든 프로바이더가 사용불가인 경우 안내 메시지 */}
+                {providerStatus.providers &&
+                 Object.values(providerStatus.providers).every((p: any) => !p.available) && (
+                  <div className="mt-3 p-3 bg-yellow-600/20 border border-yellow-600/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <span className="text-yellow-400 mt-0.5">⚠️</span>
+                      <div className="text-sm">
+                        <p className="text-yellow-300 font-medium">현재 모든 결제 서비스를 사용할 수 없습니다</p>
+                        <p className="text-yellow-200/80 text-xs mt-1">
+                          서비스 점검 중이거나 일시적인 문제가 발생했을 수 있습니다. 잠시 후 다시 시도해주세요.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </Card>
 
         {step === 'quote' && (
           <>
@@ -185,10 +231,32 @@ export default function PurchasePage() {
             {/* 견적 조회 버튼 */}
             <Button
               onClick={handleGetQuotes}
-              disabled={quotesLoading || !amount || parseFloat(amount) <= 0}
-              className="w-full mb-4 bg-[#F2A003] hover:bg-[#F2A003]/80 text-black font-bold"
+              disabled={
+                quotesLoading ||
+                !amount ||
+                parseFloat(amount) <= 0 ||
+                providerStatusError ||
+                providerStatusLoading ||
+                (providerStatus?.providers && Object.values(providerStatus.providers).every((p: any) => !p.available))
+              }
+              className={`w-full mb-4 font-bold ${
+                (providerStatusError ||
+                 providerStatusLoading ||
+                 (providerStatus?.providers && Object.values(providerStatus.providers).every((p: any) => !p.available)))
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-[#F2A003] hover:bg-[#F2A003]/80 text-black'
+              }`}
             >
-              {quotesLoading ? '견적 조회 중...' : '견적 조회'}
+              {quotesLoading
+                ? '견적 조회 중...'
+                : providerStatusError
+                  ? '서비스 연결 실패'
+                  : providerStatusLoading
+                    ? '상태 확인 중...'
+                    : (providerStatus?.providers && Object.values(providerStatus.providers).every((p: any) => !p.available))
+                      ? '결제 서비스 사용불가'
+                      : '견적 조회'
+              }
             </Button>
 
             {/* 견적 결과 */}
