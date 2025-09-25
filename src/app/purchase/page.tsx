@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Button, Card, Input, Select } from "../../components/ui";
 import { useWalletList } from "../../hooks/useWalletAtoms";
+import { useMasterAddress } from "../../hooks/wallet/useMasterAddress";
 import { usePurchaseQuotes, usePurchaseCurrencies, usePurchaseProviderStatus, usePurchaseTransaction } from "../../hooks/queries/usePurchaseQueries";
 import "../../types/webview"; // WebView 타입 정의 로드
 
@@ -39,6 +40,7 @@ const PurchaseIcon = () => (
 
 export default function PurchasePage() {
   const { selectedWallet, loadWallets, walletList, refreshWalletList } = useWalletList();
+  const { masterAddress } = useMasterAddress();
 
   // 강제 지갑 로드 함수
   const forceLoadWallet = () => {
@@ -302,6 +304,7 @@ export default function PurchasePage() {
         currency: selectedCurrency,
         amount: parseFloat(amount),
         userWalletAddress: walletAddress, // 실제 블록체인 주소 사용
+        masterAddress: masterAddress, // 🔥 지갑 고유 ID 추가
         userEmail: 'user@example.com',
         returnUrl: `${window.location.origin}/purchase/result`,
         webhookUrl: `${process.env.NEXT_PUBLIC_API_URL || ''}/webhook/purchase`
@@ -372,8 +375,28 @@ export default function PurchasePage() {
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">암호화폐 구매</h1>
-          <PurchaseIcon />
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => window.location.href = '/purchase/history'}
+              className="px-3 py-1 text-sm bg-gray-600 hover:bg-gray-500 text-white"
+            >
+              히스토리
+            </Button>
+            <PurchaseIcon />
+          </div>
         </div>
+
+        {/* 마스터 주소 표시 */}
+        {masterAddress && (
+          <Card className="bg-[#23242A] border-gray-700 mb-4">
+            <div className="p-4">
+              <h3 className="text-sm font-medium text-gray-400 mb-2">지갑 ID</h3>
+              <p className="text-white font-mono text-sm break-all">
+                {masterAddress}
+              </p>
+            </div>
+          </Card>
+        )}
 
         {/* 프로바이더 상태 */}
         <Card className="bg-[#23242A] border-gray-700 mb-4">
@@ -714,15 +737,23 @@ export default function PurchasePage() {
                 결제를 완료하면 암호화폐가 지갑으로 전송됩니다.
               </p>
 
-              <Button
-                onClick={() => {
-                  setStep('quote');
-                  setTransactionId(null);
-                }}
-                className="w-full bg-[#F2A003] hover:bg-[#F2A003]/80 text-black font-bold"
-              >
-                새 구매하기
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => window.location.href = '/purchase/history'}
+                  className="flex-1 bg-gray-600 hover:bg-gray-500 text-white"
+                >
+                  히스토리 보기
+                </Button>
+                <Button
+                  onClick={() => {
+                    setStep('quote');
+                    setTransactionId(null);
+                  }}
+                  className="flex-1 bg-[#F2A003] hover:bg-[#F2A003]/80 text-black font-bold"
+                >
+                  새 구매하기
+                </Button>
+              </div>
             </div>
           </Card>
         )}
