@@ -172,8 +172,20 @@ export const purchaseService = {
 
   // 트랜잭션 생성
   async createTransaction(request: CreateTransactionRequest): Promise<TransactionResponse> {
-    const response = await purchaseApi.post(API_ENDPOINTS.PURCHASE.TRANSACTIONS, request);
-    return response.data;
+    console.log('📤 [Purchase API] Creating transaction with request:', JSON.stringify(request, null, 2));
+    try {
+      const response = await purchaseApi.post(API_ENDPOINTS.PURCHASE.TRANSACTIONS, request);
+      console.log('📥 [Purchase API] Transaction creation response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('🚨 [Purchase API] Transaction creation error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        request: request
+      });
+      throw error;
+    }
   },
 
   // 트랜잭션 상태 조회 (providerId 파라미터 추가)
