@@ -90,22 +90,7 @@ export function usePurchaseProviderQuote(
   });
 }
 
-// 트랜잭션 상태 조회 (providerId 파라미터 추가)
-export function usePurchaseTransactionStatus(transactionId: string | null, providerId: string | null, enabled: boolean = true) {
-  return useQuery({
-    queryKey: PURCHASE_QUERY_KEYS.transaction(transactionId || ''),
-    queryFn: () => (transactionId && providerId) ? purchaseService.getTransactionStatus(transactionId, providerId) : null,
-    enabled: enabled && !!transactionId && !!providerId,
-    staleTime: 30000,
-    refetchInterval: (data, query) => {
-      // 완료되지 않은 트랜잭션은 자동 리프레시
-      if (data?.status && !['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED'].includes(data.status)) {
-        return 10000; // 10초마다
-      }
-      return false;
-    },
-  });
-}
+// 상태 확인 기능 제거됨 - 단순 중개 모델로 변경
 
 // 프로바이더 상태 조회
 export function usePurchaseProviderStatus() {

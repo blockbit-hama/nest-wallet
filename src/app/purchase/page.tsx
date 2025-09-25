@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Button, Card, Input, Select } from "../../components/ui";
-import { useMasterAddress } from "../../hooks/wallet/useMasterAddress";
 import { useWalletList } from "../../hooks/useWalletAtoms";
 import { usePurchaseQuotes, usePurchaseCurrencies, usePurchaseProviderStatus, usePurchaseTransaction } from "../../hooks/queries/usePurchaseQueries";
+import "../../types/webview"; // WebView 타입 정의 로드
 
 // 가상화폐별 아이콘 생성 함수
 const createCoinIcon = (symbol: string) => {
@@ -38,8 +38,33 @@ const PurchaseIcon = () => (
 );
 
 export default function PurchasePage() {
-  const masterAddress = useMasterAddress();
-  const { selectedWallet } = useWalletList();
+  const { selectedWallet, loadWallets, walletList, refreshWalletList } = useWalletList();
+
+  // 강제 지갑 로드 함수
+  const forceLoadWallet = () => {
+    console.log('🔄 [Purchase Page] Force loading wallet...');
+    refreshWalletList();
+
+    // 지연 후 다시 시도
+    setTimeout(() => {
+      if (!selectedWallet) {
+        console.log('🔄 [Purchase Page] Still no wallet, trying loadWallets...');
+        loadWallets();
+      }
+    }, 500);
+  };
+
+  // 지갑 초기화
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasWalletData = localStorage.getItem('nest-wallets') && localStorage.getItem('selectedWalletId');
+      if (!selectedWallet && hasWalletData) {
+        loadWallets();
+      } else if (!selectedWallet && walletList.length === 0) {
+        loadWallets();
+      }
+    }
+  }, []);
   const [selectedCurrency, setSelectedCurrency] = useState<string>('BTC');
   const [amount, setAmount] = useState<string>('100');
   const [fiatCurrency] = useState<string>('USD');
@@ -47,26 +72,40 @@ export default function PurchasePage() {
   const [step, setStep] = useState<'quote' | 'confirm' | 'processing' | 'complete'>('quote');
   const [transactionId, setTransactionId] = useState<string | null>(null);
 
-  // 페이지 로드 시 로깅
+  // 페이지 로드 시 로깅 및 지갑 초기화
   useEffect(() => {
     console.log('🔵 [Purchase Page] Component mounted');
     console.log('🔵 [Purchase Page] Environment:', {
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-      windowLocation: window.location.href,
-      userAgent: navigator.userAgent
+      windowLocation: window.location.href
     });
-    console.log('🔵 [Purchase Page] Master Address:', masterAddress);
+    console.log('🔵 [Purchase Page] = WALLET DEBUG START =');
+    console.log('selectedWallet:', selectedWallet);
+    console.log('walletList.length:', walletList.length);
+    console.log('walletList:', walletList);
+    console.log('localStorage nest-wallets:', localStorage.getItem('nest-wallets'));
+    console.log('localStorage selectedWalletId:', localStorage.getItem('selectedWalletId'));
+    console.log('🔵 [Purchase Page] = WALLET DEBUG END =');
     console.log('🔵 [Purchase Page] Initial State:', {
       selectedCurrency,
       amount,
       fiatCurrency,
       step
     });
-    console.log('🔵 [Purchase Page] API Endpoints:', {
-      PURCHASE_BASE_URL: process.env.PURCHASE_API_URL || 'http://localhost:3000'
-    });
-  }, []);
+
+    // 지갑이 없으면 로드 시도
+    if (!selectedWallet && typeof window !== 'undefined') {
+      console.log('🟡 [Purchase Page] No wallet selected, trying to load wallets...');
+
+      // useWalletList hook에서 loadWallets 호출
+      const { loadWallets } = require('../../hooks/useWalletAtoms');
+      if (typeof loadWallets === 'function') {
+        console.log('🟡 [Purchase Page] Calling loadWallets...');
+        loadWallets();
+      }
+    }
+  }, [selectedWallet]);
 
   // API 쿼리들
   const { data: currencies, isLoading: currenciesLoading, error: currenciesError } = usePurchaseCurrencies();
@@ -161,10 +200,6 @@ export default function PurchasePage() {
     console.log('🟦 [State] Step changed:', step);
   }, [step]);
 
-  // Master Address 변경 로깅
-  useEffect(() => {
-    console.log('🔵 [Wallet] Master Address updated:', masterAddress?.masterAddress);
-  }, [masterAddress]);
 
   const createTransactionMutation = usePurchaseTransaction();
 
@@ -175,7 +210,7 @@ export default function PurchasePage() {
       selectedCurrency,
       amount,
       fiatCurrency,
-      masterAddress: masterAddress?.masterAddress
+      selectedWallet: selectedWallet?.name || 'none'
     });
 
     if (!amount || parseFloat(amount) <= 0) {
@@ -194,6 +229,12 @@ export default function PurchasePage() {
 
   // 선택된 통화에 맞는 실제 블록체인 주소 가져오기
   const getWalletAddressForCurrency = (currency: string): string | null => {
+    console.log('🏦 [Wallet] Address lookup started:', {
+      currency,
+      hasSelectedWallet: !!selectedWallet,
+      walletId: selectedWallet?.id
+    });
+
     if (!selectedWallet) {
       console.warn('⚠️ [Wallet] No wallet selected');
       return null;
@@ -204,20 +245,25 @@ export default function PurchasePage() {
       'BTC': 'BTC',
       'eth': 'ETH',
       'ETH': 'ETH',
+      'ethereum': 'ETH',
       'usdt': 'USDT',
       'USDT': 'USDT',
+      'tether': 'USDT',
       'sol': 'SOL',
-      'SOL': 'SOL'
+      'SOL': 'SOL',
+      'solana': 'SOL'
     };
 
-    const addressKey = currencyMap[currency];
-    const address = selectedWallet.addresses[addressKey];
+    const addressKey = currencyMap[currency.toLowerCase()];
+    const address = selectedWallet.addresses?.[addressKey];
 
-    console.log('🏦 [Wallet] Address lookup:', {
+    console.log('🏦 [Wallet] Address lookup details:', {
       currency,
+      currencyLower: currency.toLowerCase(),
       addressKey,
-      address: address ? `${address.slice(0, 10)}...` : 'not found',
-      availableAddresses: Object.keys(selectedWallet.addresses)
+      address: address ? `${address.slice(0, 10)}...${address.slice(-6)}` : 'not found',
+      availableAddresses: selectedWallet.addresses ? Object.keys(selectedWallet.addresses) : [],
+      walletAddresses: selectedWallet.addresses
     });
 
     return address || null;
@@ -234,12 +280,12 @@ export default function PurchasePage() {
       selectedCurrency,
       amount,
       walletAddress: walletAddress ? `${walletAddress.slice(0, 10)}...` : 'not found',
-      masterAddress: masterAddress?.masterAddress
+      selectedWallet: selectedWallet?.name || 'none'
     });
 
-    if (!masterAddress || !amount || !walletAddress) {
+    if (!selectedWallet || !amount || !walletAddress) {
       console.warn('⚠️ [Validation] Missing required data:', {
-        masterAddress: !!masterAddress,
+        selectedWallet: !!selectedWallet,
         amount: !!amount,
         walletAddress: !!walletAddress,
         selectedCurrency
@@ -272,7 +318,15 @@ export default function PurchasePage() {
       // 실제 결제 URL로 리다이렉트
       if (result.paymentUrl) {
         console.log('🔗 [Redirect] Opening payment URL:', result.paymentUrl);
-        window.open(result.paymentUrl, '_blank');
+        
+        // WebView 환경 감지 및 처리
+        if (window.isReactNativeWebView && window.nativeApp) {
+          console.log('📱 [WebView] Using native app redirect');
+          window.nativeApp.openExternalUrl(result.paymentUrl);
+        } else {
+          console.log('🌐 [Browser] Using window.open');
+          window.open(result.paymentUrl, '_blank');
+        }
       }
     } catch (error) {
       console.error('🔴 [Transaction] Transaction creation failed:', error);
@@ -280,14 +334,32 @@ export default function PurchasePage() {
     }
   };
 
-  if (!masterAddress) {
+  if (!selectedWallet) {
     return (
       <div className="min-h-screen bg-[#14151A] text-white p-4">
         <Card className="bg-[#23242A] border-gray-700">
           <div className="p-6 text-center">
             <PurchaseIcon />
-            <h2 className="text-xl font-bold text-white mb-4 mt-4">지갑 연결 필요</h2>
-            <p className="text-gray-400">구매 기능을 사용하려면 먼저 지갑을 생성하거나 복원해주세요.</p>
+            <h2 className="text-xl font-bold text-white mb-4 mt-4">지갑 선택 필요</h2>
+            <p className="text-gray-400 mb-4">
+              구매 기능을 사용하려면 먼저 지갑을 선택해주세요.
+            </p>
+            <div className="text-sm text-gray-500">
+              {walletList.length === 0 ? (
+                <p>사용 가능한 지갑이 없습니다. 지갑을 먼저 생성해주세요.</p>
+              ) : (
+                <p>{walletList.length}개 지갑이 있지만 선택되지 않았습니다.</p>
+              )}
+            </div>
+            <button
+              onClick={forceLoadWallet}
+              className="mt-4 px-4 py-2 bg-[#F2A003] text-black rounded-lg hover:bg-[#F2A003]/80 transition-colors"
+            >
+              지갑 로드 재시도
+            </button>
+            <div className="mt-2 text-xs text-gray-600">
+              디버깅: localStorage에 지갑 데이터가 {typeof window !== 'undefined' && localStorage.getItem('nest-wallets') ? '있습니다' : '없습니다'}
+            </div>
           </div>
         </Card>
       </div>
@@ -541,7 +613,7 @@ export default function PurchasePage() {
                         {quotes.recommended.cryptoAmount} {selectedCurrency}
                       </div>
                       <div className="text-gray-400 text-sm">
-                        수수료: ${quotes.recommended.totalCost} | 소요시간: {quotes.recommended.processingTime}
+                        수수료: ${quotes.recommended.baseFee.toFixed(2)} | 소요시간: {quotes.recommended.processingTime}
                       </div>
                       <Button
                         onClick={() => handleCreateTransaction(quotes.recommended.providerId)}
@@ -568,7 +640,7 @@ export default function PurchasePage() {
                             {quote.cryptoAmount} {selectedCurrency}
                           </div>
                           <div className="text-gray-400 text-sm">
-                            수수료: ${quote.totalCost} | 소요시간: {quote.processingTime}
+                            수수료: ${quote.baseFee.toFixed(2)} | 소요시간: {quote.processingTime}
                           </div>
                           <Button
                             onClick={() => handleCreateTransaction(quote.providerId)}
@@ -597,18 +669,51 @@ export default function PurchasePage() {
           </Card>
         )}
 
-        {step === 'complete' && transactionId && (
+        {step === 'complete' && transactionId && quotes?.recommended && (
           <Card className="bg-[#23242A] border-gray-700">
             <div className="p-6 text-center">
               <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 ✓
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">거래 생성 완료</h3>
-              <p className="text-gray-400 mb-4">결제를 완료하려면 새 창에서 결제를 진행해주세요.</p>
-              <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
-                <p className="text-xs text-gray-400 mb-1">거래 ID</p>
-                <p className="text-sm font-mono text-white break-all">{transactionId}</p>
+              <h3 className="text-lg font-bold text-white mb-4">구매 정보</h3>
+
+              {/* 구매 정보 요약 */}
+              <div className="bg-gray-800/50 rounded-lg p-4 mb-6 text-left">
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 text-sm">결제 금액</span>
+                    <span className="text-white font-semibold">
+                      ${amount} USD
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 text-sm">구매 암호화폐</span>
+                    <span className="text-white font-semibold">
+                      {quotes.recommended.cryptoAmount.toFixed(6)} {selectedCurrency}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 text-sm">환율</span>
+                    <span className="text-gray-300 text-sm">
+                      1 {selectedCurrency} = ${quotes.recommended.exchangeRate.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="border-t border-gray-700 pt-3 mt-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400 text-sm">수수료 포함 총액</span>
+                      <span className="text-[#F2A003] font-bold">
+                        ${quotes.recommended.totalCost.toFixed(2)} USD
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
+
+              <p className="text-gray-400 text-sm mb-6">
+                MoonPay 결제창이 새 브라우저에서 열렸습니다.<br/>
+                결제를 완료하면 암호화폐가 지갑으로 전송됩니다.
+              </p>
+
               <Button
                 onClick={() => {
                   setStep('quote');
@@ -621,6 +726,7 @@ export default function PurchasePage() {
             </div>
           </Card>
         )}
+
       </div>
     </div>
   );
