@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Button, Card, Input, Select } from "../../components/ui";
 import { useMasterAddress } from "../../hooks/wallet/useMasterAddress";
+import { useWalletList } from "../../hooks/useWalletAtoms";
 import { usePurchaseQuotes, usePurchaseCurrencies, usePurchaseProviderStatus, usePurchaseTransaction } from "../../hooks/queries/usePurchaseQueries";
 
 // 가상화폐별 아이콘 생성 함수
@@ -38,6 +39,7 @@ const PurchaseIcon = () => (
 
 export default function PurchasePage() {
   const masterAddress = useMasterAddress();
+  const { selectedWallet } = useWalletList();
   const [selectedCurrency, setSelectedCurrency] = useState<string>('BTC');
   const [amount, setAmount] = useState<string>('100');
   const [fiatCurrency] = useState<string>('USD');
@@ -190,20 +192,57 @@ export default function PurchasePage() {
     }
   };
 
+  // 선택된 통화에 맞는 실제 블록체인 주소 가져오기
+  const getWalletAddressForCurrency = (currency: string): string | null => {
+    if (!selectedWallet) {
+      console.warn('⚠️ [Wallet] No wallet selected');
+      return null;
+    }
+
+    const currencyMap: Record<string, string> = {
+      'btc': 'BTC',
+      'BTC': 'BTC',
+      'eth': 'ETH',
+      'ETH': 'ETH',
+      'usdt': 'USDT',
+      'USDT': 'USDT',
+      'sol': 'SOL',
+      'SOL': 'SOL'
+    };
+
+    const addressKey = currencyMap[currency];
+    const address = selectedWallet.addresses[addressKey];
+
+    console.log('🏦 [Wallet] Address lookup:', {
+      currency,
+      addressKey,
+      address: address ? `${address.slice(0, 10)}...` : 'not found',
+      availableAddresses: Object.keys(selectedWallet.addresses)
+    });
+
+    return address || null;
+  };
+
   // 거래 생성
   const handleCreateTransaction = async (providerId: string) => {
     console.log('🟦 [User Action] Create transaction clicked');
+
+    const walletAddress = getWalletAddressForCurrency(selectedCurrency);
+
     console.log('🟦 [User Action] Transaction params:', {
       providerId,
       selectedCurrency,
       amount,
+      walletAddress: walletAddress ? `${walletAddress.slice(0, 10)}...` : 'not found',
       masterAddress: masterAddress?.masterAddress
     });
 
-    if (!masterAddress || !amount) {
+    if (!masterAddress || !amount || !walletAddress) {
       console.warn('⚠️ [Validation] Missing required data:', {
         masterAddress: !!masterAddress,
-        amount: !!amount
+        amount: !!amount,
+        walletAddress: !!walletAddress,
+        selectedCurrency
       });
       return;
     }
@@ -216,7 +255,7 @@ export default function PurchasePage() {
         providerId,
         currency: selectedCurrency,
         amount: parseFloat(amount),
-        userWalletAddress: masterAddress.masterAddress,
+        userWalletAddress: walletAddress, // 실제 블록체인 주소 사용
         userEmail: 'user@example.com',
         returnUrl: `${window.location.origin}/purchase/result`,
         webhookUrl: `${process.env.NEXT_PUBLIC_API_URL || ''}/webhook/purchase`
