@@ -341,42 +341,29 @@ export default function PurchasePage() {
                   </div>
                 ) : currencies && Object.keys(currencies).length > 0 ? (
                   <>
-                    {/* 인기 화폐 빠른 선택 */}
-                    <div className="flex gap-2 mb-3">
-                      {['BTC', 'ETH'].map((symbol) => {
-                        const isSelected = selectedCurrency === symbol;
-                        // 임시로 항상 활성화 (백엔드 API 분석 후 수정 예정)
-                        const isAvailable = true; // currencies[symbol] 대신 임시 사용
-
-                        return (
-                          <button
-                            key={symbol}
-                            onClick={() => {
-                              console.log('🟦 [User Action] Quick select currency:', symbol);
-                              setSelectedCurrency(symbol);
-                            }}
-                            className={`flex-1 p-3 rounded-lg border-2 flex items-center justify-center gap-2 transition-colors ${
-                              isSelected
-                                ? 'border-[#F2A003] bg-[#F2A003]/10 text-[#F2A003]'
-                                : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 text-white'
-                            }`}
-                          >
-                            {createCoinIcon(symbol)}
-                            <span className="font-medium text-sm">{symbol}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* 전체 화폐 선택 */}
-                    <div className="text-xs text-gray-400 mb-2">또는 다른 가상화폐 선택:</div>
                     <Select
-                      options={Object.entries(currencies).map(([symbol, currency]) => ({
-                        value: symbol,
-                        label: `${currency.name || currency.symbol || symbol} (${symbol})`,
-                        icon: createCoinIcon(symbol),
-                        subtitle: currency.providers ? `${Object.keys(currency.providers).length}개 프로바이더 지원` : '가능'
-                      }))}
+                      options={(() => {
+                        const allCurrencies = Object.entries(currencies).map(([symbol, currency]) => ({
+                          value: symbol,
+                          label: `${currency.name || currency.symbol || symbol} (${symbol})`,
+                          icon: createCoinIcon(symbol),
+                          subtitle: currency.providers ? `${Object.keys(currency.providers).length}개 프로바이더 지원` : '가능'
+                        }));
+
+                        // BTC, ETH를 최상위로 이동
+                        const priorityCurrencies = ['BTC', 'ETH'];
+                        const priority = allCurrencies.filter(option => priorityCurrencies.includes(option.value));
+                        const others = allCurrencies.filter(option => !priorityCurrencies.includes(option.value));
+
+                        // BTC, ETH 순서로 정렬 후 나머지는 기존 순서 유지
+                        const sortedPriority = priority.sort((a, b) => {
+                          const order = { BTC: 0, ETH: 1 };
+                          return (order[a.value] || 999) - (order[b.value] || 999);
+                        });
+
+                        return [...sortedPriority, ...others];
+                      })()
+                      }
                       value={selectedCurrency}
                       onChange={(value) => {
                         console.log('🟦 [User Action] Currency selected from dropdown:', value);
