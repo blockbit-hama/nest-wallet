@@ -85,10 +85,19 @@ export default function PurchasePage() {
 
       // 현재 선택된 화폐가 지원되지 않으면 BTC를 기본값으로 설정
       const availableCurrencies = Object.keys(currencies);
-      if (availableCurrencies.length > 0 && !availableCurrencies.includes(selectedCurrency)) {
-        const defaultCurrency = availableCurrencies.includes('BTC') ? 'BTC' : availableCurrencies[0];
-        console.log(`🟦 [Auto Select] ${selectedCurrency} not available, switching to ${defaultCurrency}`);
-        setSelectedCurrency(defaultCurrency);
+      if (availableCurrencies.length > 0) {
+        // BTC나 btc가 있는지 대소문자 구분없이 찾기
+        const btcKey = availableCurrencies.find(key => key.toUpperCase() === 'BTC');
+
+        if (!selectedCurrency || !availableCurrencies.includes(selectedCurrency)) {
+          const defaultCurrency = btcKey || availableCurrencies[0];
+          console.log(`🟦 [Auto Select] Setting default currency to ${defaultCurrency}`);
+          setSelectedCurrency(defaultCurrency);
+        } else if (selectedCurrency === 'BTC' && btcKey && btcKey !== 'BTC') {
+          // 초기값이 'BTC'인데 실제 키가 'btc'인 경우 조정
+          console.log(`🟦 [Auto Select] Adjusting BTC case from ${selectedCurrency} to ${btcKey}`);
+          setSelectedCurrency(btcKey);
+        }
       }
     }
   }, [currencies, currenciesLoading, currenciesError, selectedCurrency]);
@@ -343,22 +352,43 @@ export default function PurchasePage() {
                   <>
                     <Select
                       options={(() => {
-                        const allCurrencies = Object.entries(currencies).map(([symbol, currency]) => ({
-                          value: symbol,
-                          label: `${currency.name || currency.symbol || symbol} (${symbol})`,
-                          icon: createCoinIcon(symbol),
-                          subtitle: currency.providers ? `${Object.keys(currency.providers).length}개 프로바이더 지원` : '가능'
-                        }));
+                        const allCurrencies = Object.entries(currencies).map(([symbol, currency]) => {
+                          // 화폐 이름 매핑
+                          const currencyNames = {
+                            'BTC': 'Bitcoin',
+                            'ETH': 'Ethereum',
+                            'USDT': 'Tether',
+                            'USDC': 'USD Coin',
+                            'SOL': 'Solana',
+                            'MATIC': 'Polygon',
+                            'ADA': 'Cardano',
+                            'DOT': 'Polkadot',
+                            'LINK': 'Chainlink'
+                          };
 
-                        // BTC, ETH를 최상위로 이동
+                          return {
+                            value: symbol,  // 원본 symbol 그대로 사용
+                            label: `${currencyNames[symbol.toUpperCase()] || currency.name || symbol.toUpperCase()} (${symbol.toUpperCase()})`,
+                            icon: createCoinIcon(symbol.toUpperCase()),
+                            subtitle: currency.providers ? `${Object.keys(currency.providers).length}개 프로바이더 지원` : '가능'
+                          };
+                        });
+
+                        // BTC, ETH를 최상위로 이동 (대소문자 구분 없이 비교)
                         const priorityCurrencies = ['BTC', 'ETH'];
-                        const priority = allCurrencies.filter(option => priorityCurrencies.includes(option.value));
-                        const others = allCurrencies.filter(option => !priorityCurrencies.includes(option.value));
+                        const priority = allCurrencies.filter(option =>
+                          priorityCurrencies.includes(option.value.toUpperCase())
+                        );
+                        const others = allCurrencies.filter(option =>
+                          !priorityCurrencies.includes(option.value.toUpperCase())
+                        );
 
                         // BTC, ETH 순서로 정렬 후 나머지는 기존 순서 유지
                         const sortedPriority = priority.sort((a, b) => {
-                          const order = { BTC: 0, ETH: 1 };
-                          return (order[a.value] || 999) - (order[b.value] || 999);
+                          const order = { 'BTC': 0, 'ETH': 1 };
+                          const aKey = a.value.toUpperCase();
+                          const bKey = b.value.toUpperCase();
+                          return (order[aKey] || 999) - (order[bKey] || 999);
                         });
 
                         return [...sortedPriority, ...others];
