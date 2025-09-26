@@ -307,7 +307,7 @@ export default function PurchasePage() {
         masterAddress: masterAddress, // 🔥 지갑 고유 ID 추가
         userEmail: 'user@example.com',
         returnUrl: `${window.location.origin}/purchase/result`,
-        webhookUrl: `${process.env.NEXT_PUBLIC_API_URL || ''}/webhook/purchase`
+        webhookUrl: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/webhook/purchase`
       };
 
       console.log('🟡 [Purchase API] Creating transaction:', transactionRequest);
