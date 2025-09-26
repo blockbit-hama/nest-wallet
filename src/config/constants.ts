@@ -16,13 +16,18 @@ export const API_ENDPOINTS = {
   // Purchase API 엔드포인트 (백엔드 실제 경로에 맞게 수정)
   PURCHASE_BASE_URL: process.env.PURCHASE_API_URL || 'http://localhost:3000',
   PURCHASE: {
-    HEALTH: '/api/buy/v1/health',
-    CURRENCIES: '/api/buy/v1/currencies',
-    QUOTES: '/api/buy/v1/quotes',
-    QUOTES_PROVIDER: '/api/buy/v1/quotes', // 특정 프로바이더 견적 조회
-    TRANSACTIONS: '/api/buy/v1/transactions',
-    PROVIDERS_STATUS: '/api/buy/v1/providers/status'
-    // 사용자별 트랜잭션 조회와 관리자 엔드포인트는 백엔드에 없으므로 제거
+    BASE: '/buy/v1', // 🔥 기본 경로
+    HEALTH: '/buy/v1/health',
+    CURRENCIES: '/buy/v1/currencies',
+    COUNTRIES: '/buy/v1/countries', // 🔥 지원 국가 목록
+    NETWORK_FEES: '/buy/v1/network_fees', // 🔥 네트워크 수수료
+    CUSTOMER_LIMITS: (customerId: string) => `/buy/v1/customer/limits/${customerId}`, // 🔥 고객 한도
+    CUSTOMER_KYC_STATUS: (customerId: string) => `/buy/v1/customer/kyc-status/${customerId}`, // 🔥 KYC 상태
+    PURCHASE_HISTORY: (customerId: string) => `/buy/v1/purchases/by-customer/${customerId}`, // 🔥 구매 히스토리
+    QUOTES: '/buy/v1/quotes',
+    QUOTES_PROVIDER: '/buy/v1/quotes', // 특정 프로바이더 견적 조회
+    TRANSACTIONS: '/buy/v1/transactions',
+    PROVIDERS_STATUS: '/buy/v1/providers/status'
   }
 } as const;
 

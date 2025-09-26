@@ -67,6 +67,9 @@ export interface CreateTransactionRequest {
   userEmail: string;
   returnUrl: string;
   webhookUrl?: string;
+  masterAddress?: string; // 🔥 지갑앱의 고유 ID (masterAddress)
+  externalCustomerId?: string; // 🔥 외부 고객 ID (masterAddress와 동일)
+  externalTransactionId?: string; // 🔥 외부 트랜잭션 ID (로컬 추적용)
 }
 
 export interface TransactionResponse {
@@ -100,6 +103,67 @@ export interface ProviderStatus {
   }>;
   timestamp: string;
 }
+
+// 🔥 Customer Limits 타입 정의 (MoonPay API 응답 구조)
+export interface CustomerLimits {
+  customerId: string;
+  externalCustomerId: string;
+  kycStatus: string;
+  kycLevel: number;
+  limits: PurchaseLimit[];
+  createdAt?: string;
+  updatedAt?: string;
+  liveMode?: boolean;
+}
+
+export interface PurchaseLimit {
+  type: string; // 예: 'buy_credit_debit_card', 'buy_bank_transfer', 'sell_credit_debit_card'
+  dailyLimit: number;
+  dailyLimitRemaining: number;
+  monthlyLimit: number;
+  monthlyLimitRemaining: number;
+  yearlyLimit: number;
+  yearlyLimitRemaining: number;
+}
+
+// 🔥 Customer KYC Status 타입 정의
+export interface CustomerKycStatus {
+  customerId: string;
+  externalCustomerId: string;
+  kycStatus: string;
+  kycLevel: number;
+  limits: PurchaseLimit[];
+  createdAt?: string;
+  updatedAt?: string;
+  liveMode?: boolean;
+  fallback?: boolean;
+  transactionId?: string;
+  message?: string;
+}
+
+// 🔥 Purchase History 타입 정의 (MoonPay 트랜잭션 응답 구조)
+export interface PurchaseHistoryItem {
+  id: string;
+  status: string;
+  customerId?: string;
+  externalCustomerId?: string;
+  currency: string;
+  amount: number;
+  cryptoAmount?: number;
+  fiatAmount?: number;
+  fiatCurrency: string;
+  paymentMethod?: string;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  kycStatus?: string;
+  kycLevel?: number;
+  walletAddress?: string;
+  txHash?: string;
+  metadata?: any;
+}
+
 
 // Purchase API 클라이언트
 const purchaseApi = axios.create({
@@ -141,6 +205,18 @@ export const purchaseService = {
   // 지원 통화 조회
   async getSupportedCurrencies(): Promise<Record<string, SupportedCurrency>> {
     const response = await purchaseApi.get(API_ENDPOINTS.PURCHASE.CURRENCIES);
+    return response.data;
+  },
+
+  // 🔥 지원 국가 조회
+  async getSupportedCountries(): Promise<any[]> {
+    const response = await purchaseApi.get(API_ENDPOINTS.PURCHASE.COUNTRIES);
+    return response.data;
+  },
+
+  // 🔥 네트워크 수수료 조회
+  async getNetworkFees(): Promise<any> {
+    const response = await purchaseApi.get(API_ENDPOINTS.PURCHASE.NETWORK_FEES);
     return response.data;
   },
 
@@ -189,6 +265,24 @@ export const purchaseService = {
   // 프로바이더 상태 조회
   async getProviderStatus(): Promise<ProviderStatus> {
     const response = await purchaseApi.get(API_ENDPOINTS.PURCHASE.PROVIDERS_STATUS);
+    return response.data;
+  },
+
+  // 🔥 고객 구매 한도 조회 (MasterAddress = externalCustomerId)
+  async getCustomerLimits(customerId: string): Promise<CustomerLimits> {
+    const response = await purchaseApi.get(API_ENDPOINTS.PURCHASE.CUSTOMER_LIMITS(customerId));
+    return response.data;
+  },
+
+  // 🔥 고객 KYC 상태 조회 (MasterAddress = externalCustomerId)
+  async getCustomerKycStatus(customerId: string): Promise<CustomerKycStatus> {
+    const response = await purchaseApi.get(API_ENDPOINTS.PURCHASE.CUSTOMER_KYC_STATUS(customerId));
+    return response.data;
+  },
+
+  // 🔥 고객 구매 히스토리 조회 (MasterAddress = externalCustomerId)
+  async getPurchaseHistory(customerId: string, limit: number = 50): Promise<PurchaseHistoryItem[]> {
+    const response = await purchaseApi.get(`${API_ENDPOINTS.PURCHASE.PURCHASE_HISTORY(customerId)}?limit=${limit}`);
     return response.data;
   }
 };
