@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
@@ -10,7 +10,7 @@ interface TransactionResult {
   message?: string;
 }
 
-export default function PurchaseResultPage() {
+function PurchaseResultContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [result, setResult] = useState<TransactionResult>({ status: 'pending' });
@@ -121,5 +121,25 @@ export default function PurchaseResultPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function PurchaseResultPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8">
+        <Card className="max-w-md mx-auto">
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 bg-gray-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">로딩 중...</h1>
+            <p className="text-gray-400">결제 결과를 확인하고 있습니다.</p>
+          </div>
+        </Card>
+      </div>
+    }>
+      <PurchaseResultContent />
+    </Suspense>
   );
 }
